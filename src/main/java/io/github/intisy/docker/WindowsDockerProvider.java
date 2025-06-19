@@ -38,7 +38,5 @@ public class WindowsDockerProvider implements DockerProvider {
     }
 
     @Override
-    public void stop() {
-        // System-wide service is not managed by this application.
-    }
+    public void stop() {}
 }

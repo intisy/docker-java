@@ -5,6 +5,8 @@ import com.github.dockerjava.api.command.PullImageResultCallback;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ports;
+import com.github.dockerjava.api.exception.NotModifiedException;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 
 import java.util.concurrent.TimeUnit;
 
@@ -13,64 +15,97 @@ import java.util.concurrent.TimeUnit;
  */
 public class EmbeddedDockerManager {
 
-    private final DockerProvider provider;
+    private final DockerProvider dockerProvider;
+    private DockerClient dockerClient;
+    private String containerId;
 
     public EmbeddedDockerManager() {
-        String osName = System.getProperty("os.name").toLowerCase();
-        if (osName.contains("nix") || osName.contains("nux")) {
-            this.provider = new LinuxDockerProvider();
-        } else if (osName.contains("win")) {
-            this.provider = new WindowsDockerProvider();
-        } else if (osName.contains("mac")) {
-            throw new UnsupportedOperationException("macOS is not yet supported.");
+        String os = System.getProperty("os.name").toLowerCase();
+        if (os.contains("linux")) {
+            this.dockerProvider = new LinuxDockerProvider();
         } else {
-            throw new UnsupportedOperationException("Unsupported Operating System: " + osName);
+            throw new UnsupportedOperationException("Unsupported operating system: " + os);
         }
     }
 
     public void initialize() throws Exception {
-        provider.ensureInstalled();
-        provider.start();
+        dockerProvider.ensureInstalled();
+        dockerProvider.start();
+        this.dockerClient = dockerProvider.getClient();
     }
 
-    public void pullAndRunContainer(String imageName, int hostPort, int containerPort) throws InterruptedException {
-        DockerClient client = provider.getClient();
-        client.pullImageCmd(imageName)
-                .withTag("latest")
-                .exec(new PullImageResultCallback())
-                .awaitCompletion(5, TimeUnit.MINUTES);
+    public void pullAndRunContainer(String imageName, int containerPort) {
+        try {
+            String containerName = "docker-java-nginx-test";
+            try {
+                dockerClient.inspectContainerCmd(containerName).exec();
+                System.out.println("Found existing container " + containerName + ". Removing it...");
+                dockerClient.removeContainerCmd(containerName).withForce(true).exec();
+            } catch (com.github.dockerjava.api.exception.NotFoundException ignored) {}
 
-        ExposedPort tcpContainerPort = ExposedPort.tcp(containerPort);
-        Ports portBindings = new Ports();
-        portBindings.bind(tcpContainerPort, Ports.Binding.bindPort(hostPort));
+            System.out.println("Pulling image: " + imageName);
+            dockerClient.pullImageCmd(imageName)
+                    .exec(new PullImageResultCallback())
+                    .awaitCompletion(5, TimeUnit.MINUTES);
 
-        String containerId = client.createContainerCmd(imageName + ":latest")
-                .withHostConfig(new HostConfig().withPortBindings(portBindings))
-                .withExposedPorts(tcpContainerPort)
-                .exec()
-                .getId();
+            ExposedPort tcpContainerPort = ExposedPort.tcp(containerPort);
+            Ports portBindings = new Ports();
+            portBindings.bind(tcpContainerPort, Ports.Binding.empty());
 
-        client.startContainerCmd(containerId).exec();
-        System.out.printf("Started container %s. Port %d on host is mapped to %d in container.%n",
-                containerId.substring(0, 12), hostPort, containerPort);
+            this.containerId = dockerClient.createContainerCmd(imageName)
+                    .withName(containerName)
+                    .withHostConfig(new HostConfig().withPortBindings(portBindings))
+                    .withExposedPorts(tcpContainerPort)
+                    .exec()
+                    .getId();
+
+            dockerClient.startContainerCmd(this.containerId).exec();
+
+            InspectContainerResponse inspectResponse = dockerClient.inspectContainerCmd(this.containerId).exec();
+            Ports.Binding[] bindings = inspectResponse.getNetworkSettings().getPorts().getBindings().get(tcpContainerPort);
+            if (bindings == null || bindings.length == 0) {
+                throw new RuntimeException("Port bindings not found for container " + this.containerId);
+            }
+            int assignedHostPort = Integer.parseInt(bindings[0].getHostPortSpec());
+
+            System.out.printf("Started container %s (%s). Port %d on host is mapped to %d in container.%n",
+                    containerName, this.containerId.substring(0, 12), assignedHostPort, containerPort);
+        } catch (Exception e) {
+            System.err.println("A critical error occurred:");
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void stopAndRemoveContainer() {
+        if (containerId != null) {
+            try {
+                System.out.println("Attempting to stop and remove container " + containerId.substring(0, 12));
+                dockerClient.stopContainerCmd(containerId).exec();
+                dockerClient.removeContainerCmd(containerId).exec();
+                System.out.println("Successfully removed container " + containerId.substring(0, 12));
+            } catch (NotModifiedException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public void shutdown() {
-        provider.stop();
+        stopAndRemoveContainer();
+        dockerProvider.stop();
     }
 
     public static void main(String[] args) {
         EmbeddedDockerManager manager = new EmbeddedDockerManager();
         try {
             manager.initialize();
-            manager.pullAndRunContainer("nginx:alpine", 8080, 80);
-            System.out.println("Application is running. Press Ctrl+C to stop.");
+            manager.pullAndRunContainer("nginx:alpine", 80);
+            System.out.println("Container started successfully. The application will now shut down.");
             Runtime.getRuntime().addShutdownHook(new Thread(manager::shutdown));
 
         } catch (Exception e) {
             System.err.println("A critical error occurred:");
-            e.printStackTrace();
             manager.shutdown();
+            throw new RuntimeException(e);
         }
     }
 }

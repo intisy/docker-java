@@ -2,13 +2,15 @@ package io.github.intisy.docker;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
-import com.github.dockerjava.core.DockerClientBuilder;
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
+import com.github.dockerjava.core.DockerClientImpl;
+import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
+import com.github.dockerjava.transport.DockerHttpClient;
+
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -17,57 +19,121 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.attribute.PosixFilePermission;
-import java.util.HashSet;
-import java.util.Set;
+import java.nio.file.StandardCopyOption;
 import java.util.concurrent.TimeUnit;
 
 /**
  * @author Finn Birich
  */
 public class LinuxDockerProvider implements DockerProvider {
-    private static final String APP_BASE_PATH = System.getProperty("user.home") + "/.docker-java";
-    private static final Path DOCKER_RUNTIME_PATH = Paths.get(APP_BASE_PATH, "runtime");
-    private static final Path DOCKER_BIN_PATH = DOCKER_RUNTIME_PATH.resolve("docker/dockerd");
-    private static final Path DOCKER_DATA_ROOT = Paths.get(APP_BASE_PATH, "data", "docker-root");
-    private static final Path DOCKER_RUN_PATH = Paths.get(APP_BASE_PATH, "run");
-    private static final Path DOCKER_SOCKET_PATH = DOCKER_RUN_PATH.resolve("docker.sock");
-    private static final Path DOCKER_PID_PATH = DOCKER_RUN_PATH.resolve("docker.pid");
-    private static final Path VERSION_FILE = DOCKER_RUNTIME_PATH.resolve("docker/version.txt");
+    private static final String DOCKER_URL = "https://download.docker.com/linux/static/stable/x86_64/docker-26.1.4.tgz";
+    private static final String ROOTLESSKIT_VERSION = "v2.1.1";
+    private static final String ROOTLESSKIT_DOWNLOAD_URL = "https://github.com/rootless-containers/rootlesskit/releases/download/%s/rootlesskit-x86_64.tar.gz";
+    private static final String DOCKER_ROOTLESS_SCRIPT_URL = "https://raw.githubusercontent.com/moby/moby/master/contrib/dockerd-rootless.sh";
+    private static final Path DOCKER_DIR = Path.of(System.getProperty("user.home"), ".docker-java");
+    private static final Path DOCKER_PATH = DOCKER_DIR.resolve("docker/dockerd");
+    private static final Path ROOTLESSKIT_PATH = DOCKER_DIR.resolve("rootlesskit");
+    private static final Path DOCKER_SOCKET_PATH = DOCKER_DIR.resolve("run/docker.sock");
 
-    private Process dockerDaemonProcess;
+    private static final String SLIRP4NETNS_VERSION = "v1.2.1";
+    private static final String SLIRP4NETNS_DOWNLOAD_URL = "https://github.com/rootless-containers/slirp4netns/releases/download/%s/slirp4netns-x86_64";
+    private static final Path SLIRP4NETNS_DIR = DOCKER_DIR.resolve("slirp4netns");
+    private static final Path SLIRP4NETNS_PATH = SLIRP4NETNS_DIR.resolve("slirp4netns");
+
     private DockerClient dockerClient;
+    private Process dockerProcess;
 
     @Override
     public void ensureInstalled() throws IOException, InterruptedException {
-        String latestVersion = getLatestDockerVersion();
-        String currentVersion = getCurrentVersion();
-        if (!latestVersion.equals(currentVersion)) {
-            downloadAndUnpack(latestVersion);
-            setCurrentVersion(latestVersion);
+        ensureDockerInstalled();
+        ensureRootlessScriptInstalled();
+        ensureRootlessKitInstalled();
+        ensureSlirp4netnsInstalled();
+    }
+
+    private void ensureDockerInstalled() throws IOException, InterruptedException {
+        if (!Files.exists(DOCKER_PATH)) {
+            System.out.println("Docker installation is incomplete or outdated. Re-installing...");
+
+            Path dockerInstallDir = DOCKER_DIR.resolve("docker");
+            if (Files.exists(dockerInstallDir)) {
+                try (java.util.stream.Stream<Path> walk = Files.walk(dockerInstallDir)) {
+                    walk.sorted(java.util.Comparator.reverseOrder())
+                            .map(Path::toFile)
+                            .forEach(java.io.File::delete);
+                }
+            }
+
+            downloadAndExtract(DOCKER_URL, DOCKER_DIR);
         }
     }
 
-    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private void ensureRootlessScriptInstalled() throws IOException, InterruptedException {
+        Path rootlessScriptPath = DOCKER_PATH.getParent().resolve("dockerd-rootless.sh");
+        if (!Files.exists(rootlessScriptPath)) {
+            System.out.println("Downloading dockerd-rootless.sh script...");
+            downloadFile(DOCKER_ROOTLESS_SCRIPT_URL, rootlessScriptPath);
+            rootlessScriptPath.toFile().setExecutable(true);
+        }
+    }
+
+    private void ensureRootlessKitInstalled() throws IOException, InterruptedException {
+        if (Files.exists(ROOTLESSKIT_PATH.resolve("rootlesskit"))) {
+            return;
+        }
+        System.out.println("RootlessKit not found. Downloading...");
+        String url = String.format(ROOTLESSKIT_DOWNLOAD_URL, ROOTLESSKIT_VERSION);
+        downloadAndExtract(url, ROOTLESSKIT_PATH);
+        System.out.println("RootlessKit installed successfully.");
+    }
+
+    private void ensureSlirp4netnsInstalled() throws IOException, InterruptedException {
+        if (Files.exists(SLIRP4NETNS_PATH)) {
+            return;
+        }
+        System.out.println("slirp4netns not found. Downloading...");
+        SLIRP4NETNS_DIR.toFile().mkdirs();
+        String url = String.format(SLIRP4NETNS_DOWNLOAD_URL, SLIRP4NETNS_VERSION);
+        Path downloadedFilePath = SLIRP4NETNS_DIR.resolve("slirp4netns-x86_64");
+        downloadFile(url, downloadedFilePath);
+        Files.move(downloadedFilePath, SLIRP4NETNS_PATH);
+        SLIRP4NETNS_PATH.toFile().setExecutable(true);
+        System.out.println("slirp4netns installed successfully.");
+    }
+
     @Override
     public void start() throws IOException, InterruptedException {
-        if (!DOCKER_BIN_PATH.toFile().exists()) {
-            throw new IllegalStateException("Docker binary not found. Please run ensureInstalled() first.");
+        boolean forceRootless = Boolean.parseBoolean(System.getProperty("docker.force.rootless", "true"));
+
+        ProcessBuilder pb;
+        if (isRoot() && !forceRootless) {
+            System.out.println("Running as root, starting dockerd with sudo.");
+            pb = new ProcessBuilder("sudo", DOCKER_PATH.toString(), "-H", "unix://" + DOCKER_SOCKET_PATH.toString());
+            dockerProcess = pb.start();
+        } else {
+            System.out.println("Attempting to start in rootless mode using dockerd-rootless.sh.");
+
+            Path runDir = DOCKER_DIR.resolve("run");
+            Path dataDir = DOCKER_DIR.resolve("data");
+            Path configDir = DOCKER_DIR.resolve("config");
+            runDir.toFile().mkdirs();
+            dataDir.toFile().mkdirs();
+            configDir.toFile().mkdirs();
+
+            pb = new ProcessBuilder(DOCKER_PATH.getParent().resolve("dockerd-rootless.sh").toString());
+
+            String path = pb.environment().getOrDefault("PATH", "");
+            pb.environment().put("PATH", SLIRP4NETNS_DIR.toString() + File.pathSeparator + ROOTLESSKIT_PATH.toString() + File.pathSeparator + DOCKER_PATH.getParent().toString() + File.pathSeparator + path);
+            pb.environment().put("XDG_RUNTIME_DIR", runDir.toString());
+            pb.environment().put("XDG_DATA_HOME", dataDir.toString());
+            pb.environment().put("XDG_CONFIG_HOME", configDir.toString());
+
+            pb.redirectErrorStream(true);
+            pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+            dockerProcess = pb.start();
         }
-        DOCKER_DATA_ROOT.toFile().mkdirs();
-        DOCKER_RUN_PATH.toFile().mkdirs();
 
-        ProcessBuilder pb = new ProcessBuilder(
-                "sudo", DOCKER_BIN_PATH.toString(),
-                "--data-root", DOCKER_DATA_ROOT.toString(),
-                "--pidfile", DOCKER_PID_PATH.toString(),
-                "-H", "unix://" + DOCKER_SOCKET_PATH
-        );
-        pb.redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.INHERIT);
-        this.dockerDaemonProcess = pb.start();
-
-        if (!waitForFile()) {
+        if (!waitForSocket()) {
             throw new RuntimeException("Docker daemon failed to create socket in time.");
         }
     }
@@ -75,59 +141,66 @@ public class LinuxDockerProvider implements DockerProvider {
     @Override
     public DockerClient getClient() {
         if (this.dockerClient == null) {
+            String socketPath = DOCKER_SOCKET_PATH.toString();
             DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
-                    .withDockerHost("unix://" + DOCKER_SOCKET_PATH).build();
-            this.dockerClient = DockerClientBuilder.getInstance(config).build();
+                    .withDockerHost("unix://" + socketPath).build();
+
+            DockerHttpClient httpClient = new ApacheDockerHttpClient.Builder()
+                    .dockerHost(config.getDockerHost())
+                    .sslConfig(config.getSSLConfig())
+                    .build();
+
+            this.dockerClient = DockerClientImpl.getInstance(config, httpClient);
         }
         return this.dockerClient;
     }
 
     @Override
     public void stop() {
-        if (dockerDaemonProcess != null) {
-            dockerDaemonProcess.destroy();
+        if (dockerProcess != null) {
+            dockerProcess.destroy();
             try {
-                dockerDaemonProcess.waitFor(10, TimeUnit.SECONDS);
+                dockerProcess.waitFor(10, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
-                dockerDaemonProcess.destroyForcibly();
+                dockerProcess.destroyForcibly();
             }
         }
     }
 
-    @SuppressWarnings("BusyWait")
-    private boolean waitForFile() throws InterruptedException {
-        long timeoutMillis = TimeUnit.SECONDS.toMillis(15);
-        long startTime = System.currentTimeMillis();
-        while (System.currentTimeMillis() - startTime < timeoutMillis) {
-            if (Files.exists(DOCKER_SOCKET_PATH)) {
-                return true;
-            }
-            Thread.sleep(250);
-        }
-        return false;
+    private boolean isRoot() {
+        String username = System.getProperty("user.name");
+        return username != null && username.equals("root");
     }
 
-    private String getLatestDockerVersion() throws IOException, InterruptedException {
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://api.github.com/repos/moby/moby/releases/latest"))
-                .header("Accept", "application/vnd.github.v3+json")
+    private void downloadFile(String urlString, Path destinationPath) throws IOException, InterruptedException {
+        System.out.println("Downloading " + urlString + " to " + destinationPath);
+        HttpClient client = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.ALWAYS)
                 .build();
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        JsonObject json = new Gson().fromJson(response.body(), JsonObject.class);
-        return json.get("tag_name").getAsString().replace("v", "");
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(urlString))
+                .build();
+        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+
+        if (response.statusCode() >= 400) {
+            throw new IOException("Failed to download file: " + response.statusCode());
+        }
+
+        try (InputStream in = response.body()) {
+            Files.copy(in, destinationPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
-    private void downloadAndUnpack(String version) throws IOException, InterruptedException {
-        String arch = System.getProperty("os.arch").equals("amd64") ? "x86_64" : System.getProperty("os.arch");
-        String downloadUrl = String.format("https://download.docker.com/linux/static/stable/%s/docker-%s.tgz", arch, version);
-
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(downloadUrl)).build();
+    private void downloadAndExtract(String urlString, Path destinationDir, String... toExtract) throws IOException, InterruptedException {
+        System.out.println("Downloading and extracting " + urlString + "...");
+        HttpClient client = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build();
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(urlString)).build();
         HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
 
         if (response.statusCode() != 200) {
-            throw new IOException("Failed to download Docker binaries. Status code: " + response.statusCode() + " from:  " + downloadUrl);
+            throw new IOException("Failed to download file from " + urlString + ". Status code: " + response.statusCode());
         }
 
         try (InputStream is = response.body();
@@ -136,33 +209,32 @@ public class LinuxDockerProvider implements DockerProvider {
             TarArchiveEntry entry;
             while ((entry = tis.getNextTarEntry()) != null) {
                 if (!tis.canReadEntryData(entry)) continue;
-                Path outputPath = DOCKER_RUNTIME_PATH.resolve(entry.getName());
+                Path outputPath = destinationDir.resolve(entry.getName());
                 if (entry.isDirectory()) {
                     Files.createDirectories(outputPath);
                 } else {
                     Files.createDirectories(outputPath.getParent());
-                    Files.copy(tis, outputPath);
-                    if (entry.getName().endsWith("docker") || entry.getName().endsWith("dockerd")) {
-                        Set<PosixFilePermission> perms = new HashSet<>(Set.of(
-                                PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE,
-                                PosixFilePermission.GROUP_READ, PosixFilePermission.GROUP_EXECUTE));
-                        Files.setPosixFilePermissions(outputPath, perms);
+                    Files.copy(tis, outputPath, StandardCopyOption.REPLACE_EXISTING);
+                    if (entry.getName().endsWith("dockerd") || entry.getName().contains("rootlesskit")) {
+                        outputPath.toFile().setExecutable(true);
                     }
                 }
             }
         }
     }
 
-    private String getCurrentVersion() {
-        try {
-            return Files.readString(VERSION_FILE);
-        } catch (IOException e) {
-            return "none";
+    private boolean waitForSocket() throws InterruptedException {
+        System.out.println("Waiting for Docker socket to be available at " + DOCKER_SOCKET_PATH + "...");
+        long timeoutMillis = TimeUnit.SECONDS.toMillis(30);
+        long startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startTime < timeoutMillis) {
+            if (Files.exists(DOCKER_SOCKET_PATH)) {
+                System.out.println("Docker socket found.");
+                return true;
+            }
+            Thread.sleep(500);
         }
-    }
-
-    private void setCurrentVersion(String version) throws IOException {
-        Files.createDirectories(VERSION_FILE.getParent());
-        Files.writeString(VERSION_FILE, version);
+        System.err.println("Timed out waiting for Docker socket.");
+        return false;
     }
 }
