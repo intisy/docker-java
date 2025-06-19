@@ -26,17 +26,17 @@ import java.util.concurrent.TimeUnit;
  * @author Finn Birich
  */
 public class LinuxDockerProvider implements DockerProvider {
-    private static final String DOCKER_URL = "https://download.docker.com/linux/static/stable/x86_64/docker-26.1.4.tgz";
     private static final String ROOTLESSKIT_VERSION = "v2.1.1";
-    private static final String ROOTLESSKIT_DOWNLOAD_URL = "https://github.com/rootless-containers/rootlesskit/releases/download/%s/rootlesskit-x86_64.tar.gz";
+    private static final String ROOTLESSKIT_DOWNLOAD_URL = "https://github.com/rootless-containers/rootlesskit/releases/download/%s/rootlesskit-%s.tar.gz";
     private static final String DOCKER_ROOTLESS_SCRIPT_URL = "https://raw.githubusercontent.com/moby/moby/master/contrib/dockerd-rootless.sh";
     private static final Path DOCKER_DIR = Path.of(System.getProperty("user.home"), ".docker-java");
     private static final Path DOCKER_PATH = DOCKER_DIR.resolve("docker/dockerd");
     private static final Path ROOTLESSKIT_PATH = DOCKER_DIR.resolve("rootlesskit");
     private static final Path DOCKER_SOCKET_PATH = DOCKER_DIR.resolve("run/docker.sock");
+    private static final Path DOCKER_VERSION_FILE = DOCKER_DIR.resolve(".docker-version");
 
     private static final String SLIRP4NETNS_VERSION = "v1.2.1";
-    private static final String SLIRP4NETNS_DOWNLOAD_URL = "https://github.com/rootless-containers/slirp4netns/releases/download/%s/slirp4netns-x86_64";
+    private static final String SLIRP4NETNS_DOWNLOAD_URL = "https://github.com/rootless-containers/slirp4netns/releases/download/%s/slirp4netns-%s";
     private static final Path SLIRP4NETNS_DIR = DOCKER_DIR.resolve("slirp4netns");
     private static final Path SLIRP4NETNS_PATH = SLIRP4NETNS_DIR.resolve("slirp4netns");
 
@@ -52,7 +52,25 @@ public class LinuxDockerProvider implements DockerProvider {
     }
 
     private void ensureDockerInstalled() throws IOException, InterruptedException {
-        if (!Files.exists(DOCKER_PATH)) {
+        boolean autoUpdate = Boolean.parseBoolean(System.getProperty("docker.auto.update", "true"));
+        String latestVersion = DockerVersionFetcher.getLatestVersion();
+        boolean needsUpdate = true;
+
+        if (Files.exists(DOCKER_PATH)) {
+            if (autoUpdate && Files.exists(DOCKER_VERSION_FILE)) {
+                String installedVersion = Files.readString(DOCKER_VERSION_FILE).trim();
+                if (!installedVersion.equals(latestVersion)) {
+                    System.out.println("Newer Docker version available. Updating from " + installedVersion + " to " + latestVersion);
+                } else {
+                    System.out.println("Docker is up to date. (" + latestVersion + ")");
+                    needsUpdate = false;
+                }
+            } else if (!autoUpdate) {
+                needsUpdate = false;
+            }
+        }
+
+        if (needsUpdate) {
             System.out.println("Docker installation is incomplete or outdated. Re-installing...");
 
             Path dockerInstallDir = DOCKER_DIR.resolve("docker");
@@ -64,7 +82,22 @@ public class LinuxDockerProvider implements DockerProvider {
                 }
             }
 
-            downloadAndExtract(DOCKER_URL, DOCKER_DIR);
+            String arch = getArch();
+            String dockerUrl = String.format("https://download.docker.com/linux/static/stable/%s/docker-%s.tgz", arch, latestVersion);
+            downloadAndExtract(dockerUrl, DOCKER_DIR);
+            Files.writeString(DOCKER_VERSION_FILE, latestVersion);
+        }
+    }
+
+    private String getArch() {
+        String osArch = System.getProperty("os.arch");
+        switch (osArch) {
+            case "amd64":
+                return "x86_64";
+            case "aarch64":
+                return "aarch64";
+            default:
+                throw new UnsupportedOperationException("Unsupported architecture: " + osArch);
         }
     }
 
@@ -82,7 +115,7 @@ public class LinuxDockerProvider implements DockerProvider {
             return;
         }
         System.out.println("RootlessKit not found. Downloading...");
-        String url = String.format(ROOTLESSKIT_DOWNLOAD_URL, ROOTLESSKIT_VERSION);
+        String url = String.format(ROOTLESSKIT_DOWNLOAD_URL, ROOTLESSKIT_VERSION, getArch());
         downloadAndExtract(url, ROOTLESSKIT_PATH);
         System.out.println("RootlessKit installed successfully.");
     }
@@ -93,8 +126,8 @@ public class LinuxDockerProvider implements DockerProvider {
         }
         System.out.println("slirp4netns not found. Downloading...");
         SLIRP4NETNS_DIR.toFile().mkdirs();
-        String url = String.format(SLIRP4NETNS_DOWNLOAD_URL, SLIRP4NETNS_VERSION);
-        Path downloadedFilePath = SLIRP4NETNS_DIR.resolve("slirp4netns-x86_64");
+        String url = String.format(SLIRP4NETNS_DOWNLOAD_URL, SLIRP4NETNS_VERSION, getArch());
+        Path downloadedFilePath = SLIRP4NETNS_DIR.resolve("slirp4netns-" + getArch());
         downloadFile(url, downloadedFilePath);
         Files.move(downloadedFilePath, SLIRP4NETNS_PATH);
         SLIRP4NETNS_PATH.toFile().setExecutable(true);
