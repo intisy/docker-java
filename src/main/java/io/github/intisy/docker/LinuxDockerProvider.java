@@ -13,12 +13,11 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.concurrent.TimeUnit;
 
@@ -31,7 +30,7 @@ public class LinuxDockerProvider implements DockerProvider {
     private static final String ROOTLESSKIT_DOWNLOAD_URL = "https://github.com/rootless-containers/rootlesskit/releases/download/%s/rootlesskit-%s.tar.gz";
     private static final String DOCKER_ROOTLESS_SCRIPT_URL = "https://raw.githubusercontent.com/moby/moby/master/contrib/dockerd-rootless.sh";
     private static final String DOCKER_DOWNLOAD_URL = "https://download.docker.com/linux/static/stable/%s/docker-%s.tgz";
-    private static final Path DOCKER_DIR = Path.of(System.getProperty("user.home"), ".docker-java");
+    private static final Path DOCKER_DIR = Paths.get(System.getProperty("user.home"), ".docker-java");
     private static final Path DOCKER_PATH = DOCKER_DIR.resolve("docker/dockerd");
     private static final Path ROOTLESSKIT_PATH = DOCKER_DIR.resolve("rootlesskit");
     private static final Path DOCKER_SOCKET_PATH = DOCKER_DIR.resolve("run/docker.sock");
@@ -46,7 +45,7 @@ public class LinuxDockerProvider implements DockerProvider {
     private Process dockerProcess;
 
     @Override
-    public void ensureInstalled() throws IOException, InterruptedException {
+    public void ensureInstalled() throws IOException {
         ensureDockerInstalled();
         ensureRootlessScriptInstalled();
         ensureRootlessKitInstalled();
@@ -54,14 +53,14 @@ public class LinuxDockerProvider implements DockerProvider {
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    private void ensureDockerInstalled() throws IOException, InterruptedException {
+    private void ensureDockerInstalled() throws IOException {
         boolean autoUpdate = Boolean.parseBoolean(System.getProperty("docker.auto.update", "true"));
         String latestVersion = DockerVersionFetcher.getLatestVersion();
         boolean needsUpdate = true;
 
         if (Files.exists(DOCKER_PATH)) {
             if (autoUpdate && Files.exists(DOCKER_VERSION_FILE)) {
-                String installedVersion = Files.readString(DOCKER_VERSION_FILE).trim();
+                String installedVersion = new String(Files.readAllBytes(DOCKER_VERSION_FILE)).trim();
                 if (!installedVersion.equals(latestVersion)) {
                     System.out.println("Newer Docker version available. Updating from " + installedVersion + " to " + latestVersion);
                 } else {
@@ -88,20 +87,23 @@ public class LinuxDockerProvider implements DockerProvider {
             String arch = getArch();
             String dockerUrl = String.format(DOCKER_DOWNLOAD_URL, arch, latestVersion);
             downloadAndExtract(dockerUrl, DOCKER_DIR);
-            Files.writeString(DOCKER_VERSION_FILE, latestVersion);
+            Files.write(DOCKER_VERSION_FILE, latestVersion.getBytes());
         }
     }
 
     private String getArch() {
         String osArch = System.getProperty("os.arch");
-        return switch (osArch) {
-            case "amd64" -> "x86_64";
-            case "aarch64" -> "aarch64";
-            default -> throw new UnsupportedOperationException("Unsupported architecture: " + osArch);
-        };
+        switch (osArch) {
+            case "amd64":
+                return "x86_64";
+            case "aarch64":
+                return "aarch64";
+            default:
+                throw new UnsupportedOperationException("Unsupported architecture: " + osArch);
+        }
     }
 
-    private void ensureRootlessScriptInstalled() throws IOException, InterruptedException {
+    private void ensureRootlessScriptInstalled() throws IOException {
         Path rootlessScriptPath = DOCKER_PATH.getParent().resolve("dockerd-rootless.sh");
         if (!Files.exists(rootlessScriptPath)) {
             System.out.println("Downloading dockerd-rootless.sh script...");
@@ -110,7 +112,7 @@ public class LinuxDockerProvider implements DockerProvider {
         }
     }
 
-    private void ensureRootlessKitInstalled() throws IOException, InterruptedException {
+    private void ensureRootlessKitInstalled() throws IOException {
         if (Files.exists(ROOTLESSKIT_PATH.resolve("rootlesskit"))) {
             return;
         }
@@ -120,7 +122,7 @@ public class LinuxDockerProvider implements DockerProvider {
         System.out.println("RootlessKit installed successfully.");
     }
 
-    private void ensureSlirp4netnsInstalled() throws IOException, InterruptedException {
+    private void ensureSlirp4netnsInstalled() throws IOException {
         if (Files.exists(SLIRP4NETNS_PATH)) {
             return;
         }
@@ -142,7 +144,6 @@ public class LinuxDockerProvider implements DockerProvider {
         if (isRoot() && !forceRootless) {
             System.out.println("Running as root, starting dockerd with sudo.");
             pb = new ProcessBuilder("sudo", DOCKER_PATH.toString(), "-H", "unix://" + DOCKER_SOCKET_PATH);
-            dockerProcess = pb.start();
         } else {
             System.out.println("Attempting to start in rootless mode using dockerd-rootless.sh.");
 
@@ -163,8 +164,8 @@ public class LinuxDockerProvider implements DockerProvider {
 
             pb.redirectErrorStream(true);
             pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-            dockerProcess = pb.start();
         }
+        dockerProcess = pb.start();
 
         if (!waitForSocket()) {
             throw new RuntimeException("Docker daemon failed to create socket in time.");
@@ -205,39 +206,37 @@ public class LinuxDockerProvider implements DockerProvider {
         return username != null && username.equals("root");
     }
 
-    private void downloadFile(String urlString, Path destinationPath) throws IOException, InterruptedException {
+    private void downloadFile(String urlString, Path destinationPath) throws IOException {
         System.out.println("Downloading " + urlString + " to " + destinationPath);
-        HttpClient client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.ALWAYS)
-                .build();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(urlString))
-                .build();
-        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        URL url = new URL(urlString);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setInstanceFollowRedirects(true);
+        connection.setRequestMethod("GET");
+        connection.connect();
 
-        if (response.statusCode() >= 400) {
-            throw new IOException("Failed to download file: " + response.statusCode());
+        int responseCode = connection.getResponseCode();
+        if (responseCode >= 400) {
+            throw new IOException("Failed to download file: " + responseCode);
         }
 
-        try (InputStream in = response.body()) {
+        try (InputStream in = connection.getInputStream()) {
             Files.copy(in, destinationPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
     @SuppressWarnings("deprecation")
-    private void downloadAndExtract(String urlString, Path destinationDir) throws IOException, InterruptedException {
+    private void downloadAndExtract(String urlString, Path destinationDir) throws IOException {
         System.out.println("Downloading and extracting " + urlString + "...");
-        HttpClient client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(urlString)).build();
-        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        URL url = new URL(urlString);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setInstanceFollowRedirects(true);
+        connection.setRequestMethod("GET");
 
-        if (response.statusCode() != 200) {
-            throw new IOException("Failed to download file from " + urlString + ". Status code: " + response.statusCode());
+        if (connection.getResponseCode() != 200) {
+            throw new IOException("Failed to download file from " + urlString + ". Status code: " + connection.getResponseCode());
         }
 
-        try (InputStream is = response.body();
+        try (InputStream is = connection.getInputStream();
              GzipCompressorInputStream gzis = new GzipCompressorInputStream(is);
              TarArchiveInputStream tis = new TarArchiveInputStream(gzis)) {
             TarArchiveEntry entry;
