@@ -1,35 +1,25 @@
 package io.github.intisy.docker;
 
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.PullImageResultCallback;
+import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ports;
-import com.github.dockerjava.api.exception.NotModifiedException;
-import com.github.dockerjava.api.command.InspectContainerResponse;
 
 import java.util.concurrent.TimeUnit;
 
 /**
  * @author Finn Birich
  */
-public class EmbeddedDockerManager {
-
+public class ContainerTest {
     private final DockerProvider dockerProvider;
     private DockerClient dockerClient;
     private String containerId;
 
-    public EmbeddedDockerManager() {
-        String os = System.getProperty("os.name").toLowerCase();
-        if (os.contains("win")) {
-            dockerProvider = new WindowsDockerProvider();
-        } else if (os.contains("nix") || os.contains("nux") || os.contains("aix")) {
-            dockerProvider = new LinuxDockerProvider();
-        } else if (os.contains("mac")) {
-            dockerProvider = new MacDockerProvider();
-        } else {
-            throw new UnsupportedOperationException("Unsupported operating system: " + os);
-        }
+    public ContainerTest() {
+        dockerProvider = DockerProvider.get();
     }
 
     public void initialize() throws Exception {
@@ -99,16 +89,16 @@ public class EmbeddedDockerManager {
     }
 
     public static void main(String[] args) {
-        EmbeddedDockerManager manager = new EmbeddedDockerManager();
+        ContainerTest test = new ContainerTest();
         try {
-            manager.initialize();
-            manager.pullAndRunContainer("nginx:alpine", 80);
+            test.initialize();
+            test.pullAndRunContainer("nginx:alpine", 80);
             System.out.println("Container started successfully. The application will now shut down.");
-            Runtime.getRuntime().addShutdownHook(new Thread(manager::shutdown));
+            Runtime.getRuntime().addShutdownHook(new Thread(test::shutdown));
 
         } catch (Exception e) {
             System.err.println("A critical error occurred:");
-            manager.shutdown();
+            test.shutdown();
             throw new RuntimeException(e);
         }
     }
