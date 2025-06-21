@@ -20,17 +20,13 @@ public class EmbeddedDockerManager {
     private String containerId;
 
     public EmbeddedDockerManager() {
-        this.dockerProvider = getProvider();
-    }
-
-    public static DockerProvider getProvider() {
         String os = System.getProperty("os.name").toLowerCase();
         if (os.contains("win")) {
-            return new WindowsDockerProvider();
+            dockerProvider = new WindowsDockerProvider();
         } else if (os.contains("nix") || os.contains("nux") || os.contains("aix")) {
-            return new LinuxDockerProvider();
+            dockerProvider = new LinuxDockerProvider();
         } else if (os.contains("mac")) {
-            return new MacDockerProvider();
+            dockerProvider = new MacDockerProvider();
         } else {
             throw new UnsupportedOperationException("Unsupported operating system: " + os);
         }
