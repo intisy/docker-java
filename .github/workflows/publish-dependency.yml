@@ -1,0 +1,12 @@
+name: Publish Dependency
+on:
+  push:
+    tags:
+      - "*"
+jobs:
+  call-reusable-workflow:
+    uses: intisy/workflows/.github/workflows/publish-dependency.yml@main
+    with:
+      repository: ${{ github.repository }}
+    secrets:
+      envPAT: ${{ secrets.PAT }}
