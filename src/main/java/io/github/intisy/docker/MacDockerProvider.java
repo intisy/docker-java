@@ -12,12 +12,11 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.concurrent.TimeUnit;
 
@@ -27,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 @SuppressWarnings({"ResultOfMethodCallIgnored", "BusyWait"})
 public class MacDockerProvider implements DockerProvider {
     private static final String DOCKER_DOWNLOAD_URL = "https://download.docker.com/mac/static/stable/%s/docker-%s.tgz";
-    private static final Path DOCKER_DIR = Path.of(System.getProperty("user.home"), ".docker-java");
+    private static final Path DOCKER_DIR = Paths.get(System.getProperty("user.home"), ".docker-java");
     private static final Path DOCKER_PATH = DOCKER_DIR.resolve("docker/dockerd");
     private static final Path DOCKER_SOCKET_PATH = DOCKER_DIR.resolve("run/docker.sock");
     private static final Path DOCKER_VERSION_FILE = DOCKER_DIR.resolve(".docker-version");
@@ -36,14 +35,14 @@ public class MacDockerProvider implements DockerProvider {
     private Process dockerProcess;
 
     @Override
-    public void ensureInstalled() throws IOException, InterruptedException {
+    public void ensureInstalled() throws IOException {
         boolean autoUpdate = Boolean.parseBoolean(System.getProperty("docker.auto.update", "true"));
         String latestVersion = DockerVersionFetcher.getLatestVersion();
         boolean needsUpdate = true;
 
         if (Files.exists(DOCKER_PATH)) {
             if (autoUpdate && Files.exists(DOCKER_VERSION_FILE)) {
-                String installedVersion = Files.readString(DOCKER_VERSION_FILE).trim();
+                String installedVersion = new String(Files.readAllBytes(DOCKER_VERSION_FILE)).trim();
                 if (!installedVersion.equals(latestVersion)) {
                     System.out.println("Newer Docker version available. Updating from " + installedVersion + " to " + latestVersion);
                 } else {
@@ -70,17 +69,20 @@ public class MacDockerProvider implements DockerProvider {
             String arch = getArch();
             String dockerUrl = String.format(DOCKER_DOWNLOAD_URL, arch, latestVersion);
             downloadAndExtract(dockerUrl);
-            Files.writeString(DOCKER_VERSION_FILE, latestVersion);
+            Files.write(DOCKER_VERSION_FILE, latestVersion.getBytes());
         }
     }
 
     private String getArch() {
         String osArch = System.getProperty("os.arch");
-        return switch (osArch) {
-            case "amd64" -> "x86_64";
-            case "aarch64" -> "aarch64";
-            default -> throw new UnsupportedOperationException("Unsupported architecture: " + osArch);
-        };
+        switch (osArch) {
+            case "amd64":
+                return "x86_64";
+            case "aarch64":
+                return "aarch64";
+            default:
+                throw new UnsupportedOperationException("Unsupported architecture: " + osArch);
+        }
     }
 
     @Override
@@ -131,19 +133,18 @@ public class MacDockerProvider implements DockerProvider {
     }
 
     @SuppressWarnings("deprecation")
-    private void downloadAndExtract(String urlString) throws IOException, InterruptedException {
+    private void downloadAndExtract(String urlString) throws IOException {
         System.out.println("Downloading and extracting " + urlString + "...");
-        HttpClient client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(urlString)).build();
-        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        URL url = new URL(urlString);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setInstanceFollowRedirects(true);
+        connection.setRequestMethod("GET");
 
-        if (response.statusCode() != 200) {
-            throw new IOException("Failed to download file from " + urlString + ". Status code: " + response.statusCode());
+        if (connection.getResponseCode() != 200) {
+            throw new IOException("Failed to download file from " + urlString + ". Status code: " + connection.getResponseCode());
         }
 
-        try (InputStream is = response.body();
+        try (InputStream is = connection.getInputStream();
              GzipCompressorInputStream gzis = new GzipCompressorInputStream(is);
              TarArchiveInputStream tis = new TarArchiveInputStream(gzis)) {
             TarArchiveEntry entry;

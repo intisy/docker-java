@@ -9,12 +9,11 @@ import com.github.dockerjava.transport.DockerHttpClient;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
@@ -25,9 +24,9 @@ import java.util.zip.ZipInputStream;
  */
 public class WindowsDockerProvider implements DockerProvider {
     private static final String DOCKER_DOWNLOAD_URL = "https://download.docker.com/win/static/stable/%s/docker-%s.zip";
-    private static final Path DOCKER_DIR = Path.of(System.getProperty("user.home"), ".docker-java");
+    private static final Path DOCKER_DIR = Paths.get(System.getProperty("user.home"), ".docker-java");
     private static final Path DOCKER_PATH = DOCKER_DIR.resolve("docker/dockerd.exe");
-    private static final Path DOCKER_PIPE_PATH = Path.of("\\\\.\\pipe\\docker_engine");
+    private static final Path DOCKER_PIPE_PATH = Paths.get("\\\\.\\pipe\\docker_engine");
     private static final Path DOCKER_VERSION_FILE = DOCKER_DIR.resolve(".docker-version");
 
     private DockerClient dockerClient;
@@ -35,14 +34,14 @@ public class WindowsDockerProvider implements DockerProvider {
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
     @Override
-    public void ensureInstalled() throws IOException, InterruptedException {
+    public void ensureInstalled() throws IOException {
         boolean autoUpdate = Boolean.parseBoolean(System.getProperty("docker.auto.update", "true"));
         String latestVersion = DockerVersionFetcher.getLatestVersion();
         boolean needsUpdate = true;
 
         if (Files.exists(DOCKER_PATH)) {
             if (autoUpdate && Files.exists(DOCKER_VERSION_FILE)) {
-                String installedVersion = Files.readString(DOCKER_VERSION_FILE).trim();
+                String installedVersion = new String(Files.readAllBytes(DOCKER_VERSION_FILE)).trim();
                 if (!installedVersion.equals(latestVersion)) {
                     System.out.println("Newer Docker version available. Updating from " + installedVersion + " to " + latestVersion);
                 } else {
@@ -69,7 +68,7 @@ public class WindowsDockerProvider implements DockerProvider {
             String arch = getArch();
             String dockerUrl = String.format(DOCKER_DOWNLOAD_URL, arch, latestVersion);
             downloadAndExtract(dockerUrl);
-            Files.writeString(DOCKER_VERSION_FILE, latestVersion);
+            Files.write(DOCKER_VERSION_FILE, latestVersion.getBytes());
         }
     }
 
@@ -81,19 +80,18 @@ public class WindowsDockerProvider implements DockerProvider {
         throw new UnsupportedOperationException("Unsupported architecture: " + osArch);
     }
 
-    private void downloadAndExtract(String urlString) throws IOException, InterruptedException {
+    private void downloadAndExtract(String urlString) throws IOException {
         System.out.println("Downloading and extracting " + urlString + "...");
-        HttpClient client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(urlString)).build();
-        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        URL url = new URL(urlString);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setInstanceFollowRedirects(true);
+        connection.setRequestMethod("GET");
 
-        if (response.statusCode() != 200) {
-            throw new IOException("Failed to download file from " + urlString + ". Status code: " + response.statusCode());
+        if (connection.getResponseCode() != 200) {
+            throw new IOException("Failed to download file from " + urlString + ". Status code: " + connection.getResponseCode());
         }
 
-        try (InputStream is = response.body();
+        try (InputStream is = connection.getInputStream();
              ZipInputStream zis = new ZipInputStream(is)) {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
