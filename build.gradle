@@ -26,15 +26,15 @@ java {
 
 dependencies {
     implementation("com.github.docker-java:docker-java:3.5.1") {
-        exclude group: 'com.github.docker-java', module: 'docker-java-transport-jersey'
+        exclude group: "com.github.docker-java", module: "docker-java-transport-jersey"
     }
-    implementation 'com.github.docker-java:docker-java-transport-httpclient5:3.5.1'
+    implementation "com.github.docker-java:docker-java-transport-httpclient5:3.5.1"
     implementation "com.google.code.gson:gson:2.10.1"
     implementation "org.apache.commons:commons-compress:1.24.0"
-    implementation 'org.slf4j:slf4j-simple:2.0.7'
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
+    implementation "org.slf4j:slf4j-simple:2.0.7"
+    testImplementation "org.junit.jupiter:junit-jupiter:5.10.1"
 }
 
 application {
-    mainClass = 'io.github.intisy.docker.EmbeddedDockerManager'
+    mainClass = "io.github.intisy.docker.EmbeddedDockerManager"
 }
