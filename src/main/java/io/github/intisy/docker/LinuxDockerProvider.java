@@ -25,10 +25,12 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author Finn Birich
  */
+@SuppressWarnings("ResultOfMethodCallIgnored")
 public class LinuxDockerProvider implements DockerProvider {
     private static final String ROOTLESSKIT_VERSION = "v2.1.1";
     private static final String ROOTLESSKIT_DOWNLOAD_URL = "https://github.com/rootless-containers/rootlesskit/releases/download/%s/rootlesskit-%s.tar.gz";
     private static final String DOCKER_ROOTLESS_SCRIPT_URL = "https://raw.githubusercontent.com/moby/moby/master/contrib/dockerd-rootless.sh";
+    private static final String DOCKER_DOWNLOAD_URL = "https://download.docker.com/linux/static/stable/%s/docker-%s.tgz";
     private static final Path DOCKER_DIR = Path.of(System.getProperty("user.home"), ".docker-java");
     private static final Path DOCKER_PATH = DOCKER_DIR.resolve("docker/dockerd");
     private static final Path ROOTLESSKIT_PATH = DOCKER_DIR.resolve("rootlesskit");
@@ -51,6 +53,7 @@ public class LinuxDockerProvider implements DockerProvider {
         ensureSlirp4netnsInstalled();
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     private void ensureDockerInstalled() throws IOException, InterruptedException {
         boolean autoUpdate = Boolean.parseBoolean(System.getProperty("docker.auto.update", "true"));
         String latestVersion = DockerVersionFetcher.getLatestVersion();
@@ -78,12 +81,12 @@ public class LinuxDockerProvider implements DockerProvider {
                 try (java.util.stream.Stream<Path> walk = Files.walk(dockerInstallDir)) {
                     walk.sorted(java.util.Comparator.reverseOrder())
                             .map(Path::toFile)
-                            .forEach(java.io.File::delete);
+                            .forEach(File::delete);
                 }
             }
 
             String arch = getArch();
-            String dockerUrl = String.format("https://download.docker.com/linux/static/stable/%s/docker-%s.tgz", arch, latestVersion);
+            String dockerUrl = String.format(DOCKER_DOWNLOAD_URL, arch, latestVersion);
             downloadAndExtract(dockerUrl, DOCKER_DIR);
             Files.writeString(DOCKER_VERSION_FILE, latestVersion);
         }
@@ -91,14 +94,11 @@ public class LinuxDockerProvider implements DockerProvider {
 
     private String getArch() {
         String osArch = System.getProperty("os.arch");
-        switch (osArch) {
-            case "amd64":
-                return "x86_64";
-            case "aarch64":
-                return "aarch64";
-            default:
-                throw new UnsupportedOperationException("Unsupported architecture: " + osArch);
-        }
+        return switch (osArch) {
+            case "amd64" -> "x86_64";
+            case "aarch64" -> "aarch64";
+            default -> throw new UnsupportedOperationException("Unsupported architecture: " + osArch);
+        };
     }
 
     private void ensureRootlessScriptInstalled() throws IOException, InterruptedException {
@@ -141,7 +141,7 @@ public class LinuxDockerProvider implements DockerProvider {
         ProcessBuilder pb;
         if (isRoot() && !forceRootless) {
             System.out.println("Running as root, starting dockerd with sudo.");
-            pb = new ProcessBuilder("sudo", DOCKER_PATH.toString(), "-H", "unix://" + DOCKER_SOCKET_PATH.toString());
+            pb = new ProcessBuilder("sudo", DOCKER_PATH.toString(), "-H", "unix://" + DOCKER_SOCKET_PATH);
             dockerProcess = pb.start();
         } else {
             System.out.println("Attempting to start in rootless mode using dockerd-rootless.sh.");
@@ -156,7 +156,7 @@ public class LinuxDockerProvider implements DockerProvider {
             pb = new ProcessBuilder(DOCKER_PATH.getParent().resolve("dockerd-rootless.sh").toString());
 
             String path = pb.environment().getOrDefault("PATH", "");
-            pb.environment().put("PATH", SLIRP4NETNS_DIR.toString() + File.pathSeparator + ROOTLESSKIT_PATH.toString() + File.pathSeparator + DOCKER_PATH.getParent().toString() + File.pathSeparator + path);
+            pb.environment().put("PATH", SLIRP4NETNS_DIR + File.pathSeparator + ROOTLESSKIT_PATH + File.pathSeparator + DOCKER_PATH.getParent().toString() + File.pathSeparator + path);
             pb.environment().put("XDG_RUNTIME_DIR", runDir.toString());
             pb.environment().put("XDG_DATA_HOME", dataDir.toString());
             pb.environment().put("XDG_CONFIG_HOME", configDir.toString());
@@ -224,7 +224,8 @@ public class LinuxDockerProvider implements DockerProvider {
         }
     }
 
-    private void downloadAndExtract(String urlString, Path destinationDir, String... toExtract) throws IOException, InterruptedException {
+    @SuppressWarnings("deprecation")
+    private void downloadAndExtract(String urlString, Path destinationDir) throws IOException, InterruptedException {
         System.out.println("Downloading and extracting " + urlString + "...");
         HttpClient client = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NORMAL)
@@ -256,6 +257,7 @@ public class LinuxDockerProvider implements DockerProvider {
         }
     }
 
+    @SuppressWarnings("BusyWait")
     private boolean waitForSocket() throws InterruptedException {
         System.out.println("Waiting for Docker socket to be available at " + DOCKER_SOCKET_PATH + "...");
         long timeoutMillis = TimeUnit.SECONDS.toMillis(30);

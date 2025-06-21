@@ -5,6 +5,9 @@ import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.github.dockerjava.transport.DockerHttpClient;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 
 import java.io.File;
 import java.io.IOException;
@@ -17,23 +20,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.concurrent.TimeUnit;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 /**
  * @author Finn Birich
  */
-public class WindowsDockerProvider implements DockerProvider {
-    private static final String DOCKER_DOWNLOAD_URL = "https://download.docker.com/win/static/stable/%s/docker-%s.zip";
+@SuppressWarnings({"ResultOfMethodCallIgnored", "BusyWait"})
+public class MacDockerProvider implements DockerProvider {
+    private static final String DOCKER_DOWNLOAD_URL = "https://download.docker.com/mac/static/stable/%s/docker-%s.tgz";
     private static final Path DOCKER_DIR = Path.of(System.getProperty("user.home"), ".docker-java");
-    private static final Path DOCKER_PATH = DOCKER_DIR.resolve("docker/dockerd.exe");
-    private static final Path DOCKER_PIPE_PATH = Path.of("\\\\.\\pipe\\docker_engine");
+    private static final Path DOCKER_PATH = DOCKER_DIR.resolve("docker/dockerd");
+    private static final Path DOCKER_SOCKET_PATH = DOCKER_DIR.resolve("run/docker.sock");
     private static final Path DOCKER_VERSION_FILE = DOCKER_DIR.resolve(".docker-version");
 
     private DockerClient dockerClient;
     private Process dockerProcess;
 
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     @Override
     public void ensureInstalled() throws IOException, InterruptedException {
         boolean autoUpdate = Boolean.parseBoolean(System.getProperty("docker.auto.update", "true"));
@@ -75,47 +76,29 @@ public class WindowsDockerProvider implements DockerProvider {
 
     private String getArch() {
         String osArch = System.getProperty("os.arch");
-        if ("amd64".equals(osArch)) {
-            return "x86_64";
-        }
-        throw new UnsupportedOperationException("Unsupported architecture: " + osArch);
-    }
-
-    private void downloadAndExtract(String urlString) throws IOException, InterruptedException {
-        System.out.println("Downloading and extracting " + urlString + "...");
-        HttpClient client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(urlString)).build();
-        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-
-        if (response.statusCode() != 200) {
-            throw new IOException("Failed to download file from " + urlString + ". Status code: " + response.statusCode());
-        }
-
-        try (InputStream is = response.body();
-             ZipInputStream zis = new ZipInputStream(is)) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                if (!entry.isDirectory()) {
-                    Path outputPath = WindowsDockerProvider.DOCKER_DIR.resolve(entry.getName());
-                    Files.createDirectories(outputPath.getParent());
-                    Files.copy(zis, outputPath, StandardCopyOption.REPLACE_EXISTING);
-                }
-                zis.closeEntry();
-            }
-        }
+        return switch (osArch) {
+            case "amd64" -> "x86_64";
+            case "aarch64" -> "aarch64";
+            default -> throw new UnsupportedOperationException("Unsupported architecture: " + osArch);
+        };
     }
 
     @Override
     public void start() throws IOException, InterruptedException {
-        ProcessBuilder pb = new ProcessBuilder(DOCKER_PATH.toString(), "-H", "npipe://" + DOCKER_PIPE_PATH.toString().replace("\\", "/"));
+        Path runDir = DOCKER_DIR.resolve("run");
+        Path dataDir = DOCKER_DIR.resolve("data");
+        runDir.toFile().mkdirs();
+        dataDir.toFile().mkdirs();
+
+        ProcessBuilder pb = new ProcessBuilder(DOCKER_PATH.toString(), "--config-file", DOCKER_DIR.resolve("config.json").toString());
+        pb.environment().put("XDG_RUNTIME_DIR", runDir.toString());
+        pb.environment().put("XDG_DATA_HOME", dataDir.toString());
         pb.redirectErrorStream(true);
         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
         dockerProcess = pb.start();
 
-        if (!waitForPipe()) {
-            throw new RuntimeException("Docker daemon failed to create named pipe in time.");
+        if (!waitForSocket()) {
+            throw new RuntimeException("Docker daemon failed to create socket in time.");
         }
     }
 
@@ -123,7 +106,7 @@ public class WindowsDockerProvider implements DockerProvider {
     public DockerClient getClient() {
         if (this.dockerClient == null) {
             DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
-                    .withDockerHost("npipe://" + DOCKER_PIPE_PATH.toString().replace("\\", "/")).build();
+                    .withDockerHost("unix://" + DOCKER_SOCKET_PATH).build();
 
             DockerHttpClient httpClient = new ApacheDockerHttpClient.Builder()
                     .dockerHost(config.getDockerHost())
@@ -147,19 +130,51 @@ public class WindowsDockerProvider implements DockerProvider {
         }
     }
 
-    @SuppressWarnings("BusyWait")
-    private boolean waitForPipe() throws InterruptedException {
-        System.out.println("Waiting for Docker pipe to be available at " + DOCKER_PIPE_PATH + "...");
+    @SuppressWarnings("deprecation")
+    private void downloadAndExtract(String urlString) throws IOException, InterruptedException {
+        System.out.println("Downloading and extracting " + urlString + "...");
+        HttpClient client = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build();
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(urlString)).build();
+        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+
+        if (response.statusCode() != 200) {
+            throw new IOException("Failed to download file from " + urlString + ". Status code: " + response.statusCode());
+        }
+
+        try (InputStream is = response.body();
+             GzipCompressorInputStream gzis = new GzipCompressorInputStream(is);
+             TarArchiveInputStream tis = new TarArchiveInputStream(gzis)) {
+            TarArchiveEntry entry;
+            while ((entry = tis.getNextTarEntry()) != null) {
+                if (!tis.canReadEntryData(entry)) continue;
+                Path outputPath = MacDockerProvider.DOCKER_DIR.resolve(entry.getName());
+                if (entry.isDirectory()) {
+                    Files.createDirectories(outputPath);
+                } else {
+                    Files.createDirectories(outputPath.getParent());
+                    Files.copy(tis, outputPath, StandardCopyOption.REPLACE_EXISTING);
+                    if (entry.getName().endsWith("dockerd")) {
+                        outputPath.toFile().setExecutable(true);
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean waitForSocket() throws InterruptedException {
+        System.out.println("Waiting for Docker socket to be available at " + DOCKER_SOCKET_PATH + "...");
         long timeoutMillis = TimeUnit.SECONDS.toMillis(30);
         long startTime = System.currentTimeMillis();
         while (System.currentTimeMillis() - startTime < timeoutMillis) {
-            if (Files.exists(DOCKER_PIPE_PATH)) {
-                System.out.println("Docker pipe found.");
+            if (Files.exists(DOCKER_SOCKET_PATH)) {
+                System.out.println("Docker socket found.");
                 return true;
             }
             Thread.sleep(500);
         }
-        System.err.println("Timed out waiting for Docker pipe.");
+        System.err.println("Timed out waiting for Docker socket.");
         return false;
     }
 }
