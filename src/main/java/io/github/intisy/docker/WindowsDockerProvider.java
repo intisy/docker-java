@@ -107,6 +107,12 @@ public class WindowsDockerProvider implements DockerProvider {
 
     @Override
     public void start() throws IOException, InterruptedException {
+        this.dockerClient = tryConnectToExistingDocker();
+        if (this.dockerClient != null) {
+            return;
+        }
+        System.out.println("No running Docker daemon found or connection failed. Starting a managed Docker daemon.");
+
         ProcessBuilder pb = new ProcessBuilder(DOCKER_PATH.toString(), "-H", "npipe://" + DOCKER_PIPE_PATH.toString().replace("\\", "/"));
         pb.redirectErrorStream(true);
         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
@@ -115,6 +121,32 @@ public class WindowsDockerProvider implements DockerProvider {
         if (!waitForPipe()) {
             throw new RuntimeException("Docker daemon failed to create named pipe in time.");
         }
+    }
+
+    private DockerClient tryConnectToExistingDocker() {
+        String systemPipePath = "//./pipe/docker_engine";
+        File systemPipe = new File(systemPipePath);
+
+        if (systemPipe.exists()) {
+            System.out.println("Found existing Docker pipe at " + systemPipePath + ". Attempting to connect.");
+            try {
+                DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
+                        .withDockerHost("npipe://" + systemPipePath).build();
+
+                DockerHttpClient httpClient = new ApacheDockerHttpClient.Builder()
+                        .dockerHost(config.getDockerHost())
+                        .sslConfig(config.getSSLConfig())
+                        .build();
+
+                DockerClient client = DockerClientImpl.getInstance(config, httpClient);
+                client.pingCmd().exec(); // Verify connection
+                System.out.println("Successfully connected to existing Docker daemon.");
+                return client;
+            } catch (Exception e) {
+                System.err.println("Failed to connect to existing Docker daemon at " + systemPipePath + ": " + e.getMessage());
+            }
+        }
+        return null;
     }
 
     @Override

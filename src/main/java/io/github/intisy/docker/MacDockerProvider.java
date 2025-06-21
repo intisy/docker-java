@@ -87,6 +87,12 @@ public class MacDockerProvider implements DockerProvider {
 
     @Override
     public void start() throws IOException, InterruptedException {
+        this.dockerClient = tryConnectToExistingDocker();
+        if (this.dockerClient != null) {
+            return;
+        }
+        System.out.println("No running Docker daemon found or connection failed. Starting a managed Docker daemon.");
+
         Path runDir = DOCKER_DIR.resolve("run");
         Path dataDir = DOCKER_DIR.resolve("data");
         runDir.toFile().mkdirs();
@@ -102,6 +108,32 @@ public class MacDockerProvider implements DockerProvider {
         if (!waitForSocket()) {
             throw new RuntimeException("Docker daemon failed to create socket in time.");
         }
+    }
+
+    private DockerClient tryConnectToExistingDocker() {
+        String systemSocketPath = "/var/run/docker.sock";
+        File systemSocket = new File(systemSocketPath);
+
+        if (systemSocket.exists()) {
+            System.out.println("Found existing Docker socket at " + systemSocketPath + ". Attempting to connect.");
+            try {
+                DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
+                        .withDockerHost("unix://" + systemSocketPath).build();
+
+                DockerHttpClient httpClient = new ApacheDockerHttpClient.Builder()
+                        .dockerHost(config.getDockerHost())
+                        .sslConfig(config.getSSLConfig())
+                        .build();
+
+                DockerClient client = DockerClientImpl.getInstance(config, httpClient);
+                client.pingCmd().exec(); // Verify connection
+                System.out.println("Successfully connected to existing Docker daemon.");
+                return client;
+            } catch (Exception e) {
+                System.err.println("Failed to connect to existing Docker daemon at " + systemSocketPath + ": " + e.getMessage());
+            }
+        }
+        return null;
     }
 
     @Override

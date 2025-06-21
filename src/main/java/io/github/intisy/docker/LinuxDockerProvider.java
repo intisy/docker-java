@@ -138,6 +138,12 @@ public class LinuxDockerProvider implements DockerProvider {
 
     @Override
     public void start() throws IOException, InterruptedException {
+        this.dockerClient = tryConnectToExistingDocker();
+        if (this.dockerClient != null) {
+            return;
+        }
+        System.out.println("No running Docker daemon found or connection failed. Starting a managed Docker daemon.");
+
         boolean forceRootless = Boolean.parseBoolean(System.getProperty("docker.force.rootless", "true"));
 
         ProcessBuilder pb;
@@ -204,6 +210,32 @@ public class LinuxDockerProvider implements DockerProvider {
     private boolean isRoot() {
         String username = System.getProperty("user.name");
         return username != null && username.equals("root");
+    }
+
+    private DockerClient tryConnectToExistingDocker() {
+        String systemSocketPath = "/var/run/docker.sock";
+        File systemSocket = new File(systemSocketPath);
+
+        if (systemSocket.exists()) {
+            System.out.println("Found existing Docker socket at " + systemSocketPath + ". Attempting to connect.");
+            try {
+                DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
+                        .withDockerHost("unix://" + systemSocketPath).build();
+
+                DockerHttpClient httpClient = new ApacheDockerHttpClient.Builder()
+                        .dockerHost(config.getDockerHost())
+                        .sslConfig(config.getSSLConfig())
+                        .build();
+
+                DockerClient client = DockerClientImpl.getInstance(config, httpClient);
+                client.pingCmd().exec(); // Verify connection
+                System.out.println("Successfully connected to existing Docker daemon.");
+                return client;
+            } catch (Exception e) {
+                System.err.println("Failed to connect to existing Docker daemon at " + systemSocketPath + ": " + e.getMessage());
+            }
+        }
+        return null;
     }
 
     private void downloadFile(String urlString, Path destinationPath) throws IOException {
