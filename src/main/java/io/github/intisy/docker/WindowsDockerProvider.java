@@ -22,9 +22,8 @@ import java.util.zip.ZipInputStream;
 /**
  * @author Finn Birich
  */
-public class WindowsDockerProvider implements DockerProvider {
+public class WindowsDockerProvider extends DockerProvider {
     private static final String DOCKER_DOWNLOAD_URL = "https://download.docker.com/win/static/stable/%s/docker-%s.zip";
-    private static final Path DOCKER_DIR = Paths.get(System.getProperty("user.home"), ".docker-java");
     private static final Path DOCKER_PATH = DOCKER_DIR.resolve("docker/dockerd.exe");
     private static final Path DOCKER_PIPE_PATH = Paths.get("\\\\.\\pipe\\docker_engine");
     private static final Path DOCKER_VERSION_FILE = DOCKER_DIR.resolve(".docker-version");
@@ -33,7 +32,6 @@ public class WindowsDockerProvider implements DockerProvider {
     private Process dockerProcess;
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    @Override
     public void ensureInstalled() throws IOException {
         boolean autoUpdate = Boolean.parseBoolean(System.getProperty("docker.auto.update", "true"));
         String latestVersion = DockerVersionFetcher.getLatestVersion();
@@ -96,7 +94,7 @@ public class WindowsDockerProvider implements DockerProvider {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
                 if (!entry.isDirectory()) {
-                    Path outputPath = WindowsDockerProvider.DOCKER_DIR.resolve(entry.getName());
+                    Path outputPath = DOCKER_DIR.resolve(entry.getName());
                     Files.createDirectories(outputPath.getParent());
                     Files.copy(zis, outputPath, StandardCopyOption.REPLACE_EXISTING);
                 }
@@ -112,6 +110,8 @@ public class WindowsDockerProvider implements DockerProvider {
             return;
         }
         System.out.println("No running Docker daemon found or connection failed. Starting a managed Docker daemon.");
+
+        ensureInstalled();
 
         ProcessBuilder pb = new ProcessBuilder(DOCKER_PATH.toString(), "-H", "npipe://" + DOCKER_PIPE_PATH.toString().replace("\\", "/"));
         pb.redirectErrorStream(true);
