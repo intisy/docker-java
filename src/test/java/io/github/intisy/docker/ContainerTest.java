@@ -89,6 +89,7 @@ public class ContainerTest {
     }
 
     public static void main(String[] args) {
+        System.out.println("Starting container test on OS: " + System.getProperty("os.name"));
         ContainerTest test = new ContainerTest();
         try {
             test.initialize();

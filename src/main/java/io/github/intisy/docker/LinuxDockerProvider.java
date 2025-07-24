@@ -17,7 +17,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.concurrent.TimeUnit;
 
@@ -25,42 +24,45 @@ import java.util.concurrent.TimeUnit;
  * @author Finn Birich
  */
 @SuppressWarnings("ResultOfMethodCallIgnored")
-public class LinuxDockerProvider implements DockerProvider {
+public class LinuxDockerProvider extends DockerProvider {
     private static final String ROOTLESSKIT_VERSION = "v2.1.1";
     private static final String ROOTLESSKIT_DOWNLOAD_URL = "https://github.com/rootless-containers/rootlesskit/releases/download/%s/rootlesskit-%s.tar.gz";
     private static final String DOCKER_ROOTLESS_SCRIPT_URL = "https://raw.githubusercontent.com/moby/moby/master/contrib/dockerd-rootless.sh";
     private static final String DOCKER_DOWNLOAD_URL = "https://download.docker.com/linux/static/stable/%s/docker-%s.tgz";
-    private static final Path DOCKER_DIR = Paths.get(System.getProperty("user.home"), ".docker-java");
-    private static final Path DOCKER_PATH = DOCKER_DIR.resolve("docker/dockerd");
-    private static final Path ROOTLESSKIT_PATH = DOCKER_DIR.resolve("rootlesskit");
-    private static final Path DOCKER_SOCKET_PATH = DOCKER_DIR.resolve("run/docker.sock");
-    private static final Path DOCKER_VERSION_FILE = DOCKER_DIR.resolve(".docker-version");
 
     private static final String SLIRP4NETNS_VERSION = "v1.2.1";
     private static final String SLIRP4NETNS_DOWNLOAD_URL = "https://github.com/rootless-containers/slirp4netns/releases/download/%s/slirp4netns-%s";
     private static final Path SLIRP4NETNS_DIR = DOCKER_DIR.resolve("slirp4netns");
     private static final Path SLIRP4NETNS_PATH = SLIRP4NETNS_DIR.resolve("slirp4netns");
 
+    private Path dockerPath;
+    private Path rootlessKitPath;
+    private Path dockerSocketPath;
+    private Path dockerVersionFile;
+
     private DockerClient dockerClient;
     private Process dockerProcess;
-
-    @Override
-    public void ensureInstalled() throws IOException {
-        ensureDockerInstalled();
-        ensureRootlessScriptInstalled();
-        ensureRootlessKitInstalled();
-        ensureSlirp4netnsInstalled();
+    
+    public LinuxDockerProvider() {
+        setPath(DOCKER_DIR);
+    }
+    
+    public void setPath(Path path) {
+        dockerPath = path.resolve("docker/dockerd");
+        rootlessKitPath = path.resolve("rootlesskit");
+        dockerSocketPath = path.resolve("run/docker.sock");
+        dockerVersionFile = path.resolve(".docker-version");
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    private void ensureDockerInstalled() throws IOException {
+    public void ensureInstalled() throws IOException {
         boolean autoUpdate = Boolean.parseBoolean(System.getProperty("docker.auto.update", "true"));
         String latestVersion = DockerVersionFetcher.getLatestVersion();
         boolean needsUpdate = true;
 
-        if (Files.exists(DOCKER_PATH)) {
-            if (autoUpdate && Files.exists(DOCKER_VERSION_FILE)) {
-                String installedVersion = new String(Files.readAllBytes(DOCKER_VERSION_FILE)).trim();
+        if (Files.exists(dockerPath)) {
+            if (autoUpdate && Files.exists(dockerVersionFile)) {
+                String installedVersion = new String(Files.readAllBytes(dockerVersionFile)).trim();
                 if (!installedVersion.equals(latestVersion)) {
                     System.out.println("Newer Docker version available. Updating from " + installedVersion + " to " + latestVersion);
                 } else {
@@ -87,7 +89,7 @@ public class LinuxDockerProvider implements DockerProvider {
             String arch = getArch();
             String dockerUrl = String.format(DOCKER_DOWNLOAD_URL, arch, latestVersion);
             downloadAndExtract(dockerUrl, DOCKER_DIR);
-            Files.write(DOCKER_VERSION_FILE, latestVersion.getBytes());
+            Files.write(dockerVersionFile, latestVersion.getBytes());
         }
     }
 
@@ -104,7 +106,7 @@ public class LinuxDockerProvider implements DockerProvider {
     }
 
     private void ensureRootlessScriptInstalled() throws IOException {
-        Path rootlessScriptPath = DOCKER_PATH.getParent().resolve("dockerd-rootless.sh");
+        Path rootlessScriptPath = dockerPath.getParent().resolve("dockerd-rootless.sh");
         if (!Files.exists(rootlessScriptPath)) {
             System.out.println("Downloading dockerd-rootless.sh script...");
             downloadFile(DOCKER_ROOTLESS_SCRIPT_URL, rootlessScriptPath);
@@ -113,12 +115,12 @@ public class LinuxDockerProvider implements DockerProvider {
     }
 
     private void ensureRootlessKitInstalled() throws IOException {
-        if (Files.exists(ROOTLESSKIT_PATH.resolve("rootlesskit"))) {
+        if (Files.exists(rootlessKitPath.resolve("rootlesskit"))) {
             return;
         }
         System.out.println("RootlessKit not found. Downloading...");
         String url = String.format(ROOTLESSKIT_DOWNLOAD_URL, ROOTLESSKIT_VERSION, getArch());
-        downloadAndExtract(url, ROOTLESSKIT_PATH);
+        downloadAndExtract(url, rootlessKitPath);
         System.out.println("RootlessKit installed successfully.");
     }
 
@@ -146,12 +148,17 @@ public class LinuxDockerProvider implements DockerProvider {
 
         boolean forceRootless = Boolean.parseBoolean(System.getProperty("docker.force.rootless", "true"));
 
+        ensureInstalled();
         ProcessBuilder pb;
         if (isRoot() && !forceRootless) {
             System.out.println("Running as root, starting dockerd with sudo.");
-            pb = new ProcessBuilder("sudo", DOCKER_PATH.toString(), "-H", "unix://" + DOCKER_SOCKET_PATH);
+            pb = new ProcessBuilder("sudo", dockerPath.toString(), "-H", "unix://" + dockerSocketPath.toString());
         } else {
             System.out.println("Attempting to start in rootless mode using dockerd-rootless.sh.");
+
+            ensureRootlessScriptInstalled();
+            ensureRootlessKitInstalled();
+            ensureSlirp4netnsInstalled();
 
             Path runDir = DOCKER_DIR.resolve("run");
             Path dataDir = DOCKER_DIR.resolve("data");
@@ -160,10 +167,10 @@ public class LinuxDockerProvider implements DockerProvider {
             dataDir.toFile().mkdirs();
             configDir.toFile().mkdirs();
 
-            pb = new ProcessBuilder(DOCKER_PATH.getParent().resolve("dockerd-rootless.sh").toString());
+            pb = new ProcessBuilder(dockerPath.getParent().resolve("dockerd-rootless.sh").toString());
 
             String path = pb.environment().getOrDefault("PATH", "");
-            pb.environment().put("PATH", SLIRP4NETNS_DIR + File.pathSeparator + ROOTLESSKIT_PATH + File.pathSeparator + DOCKER_PATH.getParent().toString() + File.pathSeparator + path);
+            pb.environment().put("PATH", SLIRP4NETNS_DIR + File.pathSeparator + rootlessKitPath + File.pathSeparator + dockerPath.getParent().toString() + File.pathSeparator + path);
             pb.environment().put("XDG_RUNTIME_DIR", runDir.toString());
             pb.environment().put("XDG_DATA_HOME", dataDir.toString());
             pb.environment().put("XDG_CONFIG_HOME", configDir.toString());
@@ -181,7 +188,7 @@ public class LinuxDockerProvider implements DockerProvider {
     @Override
     public DockerClient getClient() {
         if (this.dockerClient == null) {
-            String socketPath = DOCKER_SOCKET_PATH.toString();
+            String socketPath = dockerSocketPath.toString();
             DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
                     .withDockerHost("unix://" + socketPath).build();
 
@@ -290,11 +297,11 @@ public class LinuxDockerProvider implements DockerProvider {
 
     @SuppressWarnings("BusyWait")
     private boolean waitForSocket() throws InterruptedException {
-        System.out.println("Waiting for Docker socket to be available at " + DOCKER_SOCKET_PATH + "...");
+        System.out.println("Waiting for Docker socket to be available at " + dockerSocketPath + "...");
         long timeoutMillis = TimeUnit.SECONDS.toMillis(30);
         long startTime = System.currentTimeMillis();
         while (System.currentTimeMillis() - startTime < timeoutMillis) {
-            if (Files.exists(DOCKER_SOCKET_PATH)) {
+            if (Files.exists(dockerSocketPath)) {
                 System.out.println("Docker socket found.");
                 return true;
             }
