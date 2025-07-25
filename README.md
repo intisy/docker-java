@@ -18,7 +18,7 @@ Docker-java provides a standalone Docker server for Java.
   <dependency>
       <groupId>io.github.intisy</groupId>
       <artifactId>docker-java</artifactId>
-      <version>1.1.3.2</version>
+      <version>1.1.3.3</version>
   </dependency>
 ```
 
@@ -45,7 +45,7 @@ Docker-java provides a standalone Docker server for Java.
       }
   }
   dependencies {
-      implementation 'io.github.intisy:docker-java:1.1.3.2'
+      implementation 'io.github.intisy:docker-java:1.1.3.3'
   }
 ```
 
@@ -57,16 +57,18 @@ Docker-java provides a standalone Docker server for Java.
       id "io.github.intisy.github-gradle" version "1.3.7"
   }
   dependencies {
-      githubImplementation "intisy:docker-java:1.1.3.2"
+      githubImplementation "intisy:docker-java:1.1.3.3"
   }
 ```
 
 Once you have it installed you can use it like so:
 
-```DockerProvider dockerProvider = DockerProvider.get();
+```
+DockerProvider dockerProvider = DockerProvider.get();
 dockerProvider.ensureInstalled();
 dockerProvider.start();
-DockerClient dockerClient = dockerProvider.getClient();```
+DockerClient dockerClient = dockerProvider.getClient();
+```
 
 ## License
 
