@@ -5,18 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="07a43684-beef-4730-9d91-b729ea053b7b" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/discord.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/discord.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/io/github/intisy/docker/DockerProvider.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/io/github/intisy/docker/DockerProvider.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/io/github/intisy/docker/LinuxDockerProvider.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/io/github/intisy/docker/LinuxDockerProvider.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/io/github/intisy/docker/MacDockerProvider.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/io/github/intisy/docker/MacDockerProvider.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/io/github/intisy/docker/WindowsDockerProvider.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/io/github/intisy/docker/WindowsDockerProvider.java" afterDir="false" />
-      <change beforePath="/mnt/nvme_data/Documents/GitHub/docker-java/.idea/discord.xml" beforeDir="false" afterPath="/mnt/nvme_data/Documents/GitHub/docker-java/.idea/discord.xml" afterDir="false" />
-      <change beforePath="/mnt/nvme_data/Documents/GitHub/docker-java/.idea/workspace.xml" beforeDir="false" afterPath="/mnt/nvme_data/Documents/GitHub/docker-java/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="/mnt/nvme_data/Documents/GitHub/docker-java/src/main/java/io/github/intisy/docker/DockerProvider.java" beforeDir="false" afterPath="/mnt/nvme_data/Documents/GitHub/docker-java/src/main/java/io/github/intisy/docker/DockerProvider.java" afterDir="false" />
-      <change beforePath="/mnt/nvme_data/Documents/GitHub/docker-java/src/main/java/io/github/intisy/docker/LinuxDockerProvider.java" beforeDir="false" afterPath="/mnt/nvme_data/Documents/GitHub/docker-java/src/main/java/io/github/intisy/docker/LinuxDockerProvider.java" afterDir="false" />
-      <change beforePath="/mnt/nvme_data/Documents/GitHub/docker-java/src/main/java/io/github/intisy/docker/MacDockerProvider.java" beforeDir="false" afterPath="/mnt/nvme_data/Documents/GitHub/docker-java/src/main/java/io/github/intisy/docker/MacDockerProvider.java" afterDir="false" />
-      <change beforePath="/mnt/nvme_data/Documents/GitHub/docker-java/src/main/java/io/github/intisy/docker/WindowsDockerProvider.java" beforeDir="false" afterPath="/mnt/nvme_data/Documents/GitHub/docker-java/src/main/java/io/github/intisy/docker/WindowsDockerProvider.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/io/github/intisy/docker/ContainerTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/io/github/intisy/docker/ContainerTest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -57,25 +51,28 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;development&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Gradle.ContainerTest.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "development",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "F:/Documents/GitHub/docker-java",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9823dce3aa75-bf35d07a577b-intellij.indexing.shared.core-IU-252.23591.19" />
-        <option value="bundled-js-predefined-d6986cc7102b-6be00b7b0f42-JavaScript-IU-252.23591.19" />
+        <option value="bundled-jdk-9823dce3aa75-bf35d07a577b-intellij.indexing.shared.core-IU-252.23892.248" />
+        <option value="bundled-js-predefined-d6986cc7102b-e03c56caf84a-JavaScript-IU-252.23892.248" />
       </set>
     </attachedChunks>
   </component>
@@ -91,6 +88,7 @@
       <workItem from="1750941695975" duration="600000" />
       <workItem from="1750962870884" duration="526000" />
       <workItem from="1750963800711" duration="429000" />
+      <workItem from="1753430643403" duration="945000" />
     </task>
     <servers />
   </component>

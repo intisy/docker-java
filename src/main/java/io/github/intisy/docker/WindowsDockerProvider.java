@@ -6,9 +6,7 @@ import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.github.dockerjava.transport.DockerHttpClient;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
@@ -105,6 +103,13 @@ public class WindowsDockerProvider extends DockerProvider {
 
     @Override
     public void start() throws IOException, InterruptedException {
+        if (!isAdministrator()) {
+            System.err.println("\nERROR: Docker daemon on Windows requires Administrator privileges.\nPlease run your application or test as Administrator.\n");
+            throw new RuntimeException("Administrator privileges required to start Docker daemon on Windows.");
+        }
+
+        ensureContainersFeatureEnabled();
+
         this.dockerClient = tryConnectToExistingDocker();
         if (this.dockerClient != null) {
             return;
@@ -123,15 +128,50 @@ public class WindowsDockerProvider extends DockerProvider {
         }
     }
 
-    private DockerClient tryConnectToExistingDocker() {
-        String systemPipePath = "//./pipe/docker_engine";
-        File systemPipe = new File(systemPipePath);
+    private void ensureContainersFeatureEnabled() throws IOException, InterruptedException {
+        ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-Command", "Get-WindowsOptionalFeature -Online -FeatureName Containers");
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+        
+        StringBuilder output = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append("\n");
+            }
+        }
+        
+        process.waitFor();
+        String outputStr = output.toString();
+        
+        if (!outputStr.contains("State : Enabled")) {
+            System.out.println("Enabling Windows Containers feature (requires reboot)...");
+            ProcessBuilder enablePb = new ProcessBuilder("powershell.exe", "-Command", "Enable-WindowsOptionalFeature -Online -FeatureName Containers -All");
+            enablePb.inheritIO();
+            Process enableProcess = enablePb.start();
+            enableProcess.waitFor();
+            System.err.println("\nThe Windows Containers feature was just enabled. Please reboot your computer and run again.\n");
+            throw new RuntimeException("Windows Containers feature enabled. Reboot required.");
+        }
+    }
 
-        if (systemPipe.exists()) {
-            System.out.println("Found existing Docker pipe at " + systemPipePath + ". Attempting to connect.");
+    private boolean isAdministrator() {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("net", "session");
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            return process.waitFor() == 0;
+        } catch (IOException | InterruptedException e) {
+            return false;
+        }
+    }
+
+    private DockerClient tryConnectToExistingDocker() {
+        if (Files.exists(DOCKER_PIPE_PATH)) {
+            System.out.println("Found existing Docker pipe at " + DOCKER_PIPE_PATH + ". Attempting to connect.");
             try {
                 DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
-                        .withDockerHost("npipe://" + systemPipePath).build();
+                        .withDockerHost("npipe://" + DOCKER_PIPE_PATH.toString().replace("\\", "/")).build();
 
                 DockerHttpClient httpClient = new ApacheDockerHttpClient.Builder()
                         .dockerHost(config.getDockerHost())
@@ -143,7 +183,7 @@ public class WindowsDockerProvider extends DockerProvider {
                 System.out.println("Successfully connected to existing Docker daemon.");
                 return client;
             } catch (Exception e) {
-                System.err.println("Failed to connect to existing Docker daemon at " + systemPipePath + ": " + e.getMessage());
+                System.err.println("Failed to connect to existing Docker daemon at " + DOCKER_PIPE_PATH + ": " + e.getMessage());
             }
         }
         return null;

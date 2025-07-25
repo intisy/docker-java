@@ -7,6 +7,7 @@ import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ports;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.TimeUnit;
 
@@ -89,17 +90,22 @@ public class ContainerTest {
     }
 
     public static void main(String[] args) {
-        System.out.println("Starting container test on OS: " + System.getProperty("os.name"));
         ContainerTest test = new ContainerTest();
+        test.start();
+    }
+
+    @Test
+    public void start() {
+        System.out.println("Starting container test on OS: " + System.getProperty("os.name"));
         try {
-            test.initialize();
-            test.pullAndRunContainer("nginx:alpine", 80);
+            initialize();
+            pullAndRunContainer("nginx:alpine", 80);
             System.out.println("Container started successfully. The application will now shut down.");
-            Runtime.getRuntime().addShutdownHook(new Thread(test::shutdown));
+            Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
 
         } catch (Exception e) {
             System.err.println("A critical error occurred:");
-            test.shutdown();
+            shutdown();
             throw new RuntimeException(e);
         }
     }
