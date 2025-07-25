@@ -18,7 +18,7 @@ Docker-java provides a standalone Docker server for Java.
   <dependency>
       <groupId>io.github.intisy</groupId>
       <artifactId>docker-java</artifactId>
-      <version>1.1.3.4</version>
+      <version>1.1.3.5</version>
   </dependency>
 ```
 
@@ -45,7 +45,7 @@ Docker-java provides a standalone Docker server for Java.
       }
   }
   dependencies {
-      implementation 'io.github.intisy:docker-java:1.1.3.4'
+      implementation 'io.github.intisy:docker-java:1.1.3.5'
   }
 ```
 
@@ -57,7 +57,7 @@ Docker-java provides a standalone Docker server for Java.
       id "io.github.intisy.github-gradle" version "1.3.7"
   }
   dependencies {
-      githubImplementation "intisy:docker-java:1.1.3.4"
+      githubImplementation "intisy:docker-java:1.1.3.5"
   }
 ```
 
@@ -70,11 +70,11 @@ dockerProvider.start();
 DockerClient dockerClient = dockerProvider.getClient();
 ```
 
-?? - Linux root
-?? - Linux rootless
-?? - Windows Administrator 
- ?? - Windows non-Administrator 
-?? - macOS
+☑ - Linux root
+☑ - Linux rootless
+☑ - Windows Administrator 
+☐ - Windows non-Administrator 
+☐ - macOS
 
 ## License
 
