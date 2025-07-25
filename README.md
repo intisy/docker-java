@@ -6,7 +6,7 @@ Archives containing JAR files are available as [releases](https://github.com/int
 
 Docker-java provides a standalone Docker server for Java.
 
-## Usage in private repos (faster)
+## Usage in private projects
 
  * Maven (inside the  file)
 ```xml
@@ -49,7 +49,7 @@ Docker-java provides a standalone Docker server for Java.
   }
 ```
 
-## Usage in public repos (slower and only works in gradle but safer)
+## Usage in public projects
 
  * Gradle (inside the  or  file)
 ```groovy
