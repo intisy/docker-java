@@ -28,3 +28,7 @@ dependencies {
     implementation "org.slf4j:slf4j-simple:2.0.7"
     testImplementation "org.junit.jupiter:junit-jupiter:5.10.1"
 }
+
+test {
+    useJUnitPlatform()
+}
