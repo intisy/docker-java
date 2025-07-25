@@ -143,8 +143,9 @@ public class WindowsDockerProvider extends DockerProvider {
         
         process.waitFor();
         String outputStr = output.toString();
-        
-        if (!outputStr.contains("State : Enabled")) {
+
+        System.out.println(outputStr);
+        if (!outputStr.contains("State            : Enabled")) {
             System.out.println("Enabling Windows Containers feature (requires reboot)...");
             ProcessBuilder enablePb = new ProcessBuilder("powershell.exe", "-Command", "Enable-WindowsOptionalFeature -Online -FeatureName Containers -All");
             enablePb.inheritIO();
