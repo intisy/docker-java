@@ -2,6 +2,10 @@
 
 Archives containing JAR files are available as [releases](https://github.com/intisy/docker-java/releases).
 
+## What is intisy/docker-java?
+
+Docker-java provides a standalone Docker server for Java.
+
 ## Usage in private repos (faster)
 
  * Maven (inside the  file)
@@ -14,7 +18,7 @@ Archives containing JAR files are available as [releases](https://github.com/int
   <dependency>
       <groupId>io.github.intisy</groupId>
       <artifactId>docker-java</artifactId>
-      <version>1.1.3</version>
+      <version>1.1.3.1</version>
   </dependency>
 ```
 
@@ -41,7 +45,7 @@ Archives containing JAR files are available as [releases](https://github.com/int
       }
   }
   dependencies {
-      implementation 'io.github.intisy:docker-java:1.1.3'
+      implementation 'io.github.intisy:docker-java:1.1.3.1'
   }
 ```
 
@@ -53,7 +57,7 @@ Archives containing JAR files are available as [releases](https://github.com/int
       id "io.github.intisy.github-gradle" version "1.3.7"
   }
   dependencies {
-      githubImplementation "intisy:docker-java:1.1.3"
+      githubImplementation "intisy:docker-java:1.1.3.1"
   }
 ```
 
