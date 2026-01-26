@@ -11,9 +11,7 @@ import java.io.InputStream;
  */
 final class IOUtils {
     
-    private IOUtils() {
-        // Utility class
-    }
+    private IOUtils() {}
     
     /**
      * Reads all bytes from an input stream (Java 8 compatible replacement for InputStream.readAllBytes()).
