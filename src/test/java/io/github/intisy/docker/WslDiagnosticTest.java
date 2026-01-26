@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 
+import static io.github.intisy.docker.IOUtils.readAllBytes;
+
 /**
  * Diagnostic test for WSL2 detection on Windows.
  * Run this test to see what's happening with WSL detection.
@@ -28,7 +30,7 @@ public class WslDiagnosticTest {
             ProcessBuilder pb = new ProcessBuilder("wsl", "--version");
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            byte[] output = process.getInputStream().readAllBytes();
+            byte[] output = readAllBytes(process.getInputStream());
             int exitCode = process.waitFor();
             
             // Try different encodings
@@ -48,7 +50,7 @@ public class WslDiagnosticTest {
             ProcessBuilder pb = new ProcessBuilder("wsl", "-l", "-v");
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            byte[] output = process.getInputStream().readAllBytes();
+            byte[] output = readAllBytes(process.getInputStream());
             int exitCode = process.waitFor();
             
             // WSL output is usually UTF-16LE on Windows
@@ -72,7 +74,7 @@ public class WslDiagnosticTest {
             ProcessBuilder pb = new ProcessBuilder("wsl", "-e", "echo", "hello from wsl");
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            byte[] output = process.getInputStream().readAllBytes();
+            byte[] output = readAllBytes(process.getInputStream());
             int exitCode = process.waitFor();
             
             log.info("wsl -e echo exit code: {}", exitCode);
@@ -87,7 +89,7 @@ public class WslDiagnosticTest {
             ProcessBuilder pb = new ProcessBuilder("wsl", "-d", "Ubuntu", "-e", "bash", "-c", "command -v dockerd || echo 'not found'");
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            byte[] output = process.getInputStream().readAllBytes();
+            byte[] output = readAllBytes(process.getInputStream());
             int exitCode = process.waitFor();
             
             log.info("dockerd check exit code: {}", exitCode);
@@ -102,7 +104,7 @@ public class WslDiagnosticTest {
             ProcessBuilder pb = new ProcessBuilder("wsl", "-d", "Ubuntu", "-e", "bash", "-c", "groups && id");
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            byte[] output = process.getInputStream().readAllBytes();
+            byte[] output = readAllBytes(process.getInputStream());
             int exitCode = process.waitFor();
             
             log.info("groups check exit code: {}", exitCode);
@@ -118,7 +120,7 @@ public class WslDiagnosticTest {
                     "dockerd -H unix:///tmp/test-docker.sock 2>&1 & sleep 3; cat /tmp/test-docker.log 2>/dev/null; pkill -f 'dockerd.*test-docker'");
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            byte[] output = process.getInputStream().readAllBytes();
+            byte[] output = readAllBytes(process.getInputStream());
             int exitCode = process.waitFor();
             
             log.info("dockerd test exit code: {}", exitCode);
@@ -133,7 +135,7 @@ public class WslDiagnosticTest {
             ProcessBuilder pb = new ProcessBuilder("wsl", "-e", "cat", "/etc/os-release");
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            byte[] output = process.getInputStream().readAllBytes();
+            byte[] output = readAllBytes(process.getInputStream());
             int exitCode = process.waitFor();
             
             log.info("os-release exit code: {}", exitCode);

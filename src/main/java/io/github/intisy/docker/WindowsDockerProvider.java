@@ -15,6 +15,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import static io.github.intisy.docker.IOUtils.readAllBytes;
+
 /**
  * Windows-specific Docker provider.
  * Supports both native Windows containers (requires admin) and WSL2-based Docker (no admin required).
@@ -109,7 +111,7 @@ public class WindowsDockerProvider extends DockerProvider {
             ProcessBuilder checkPb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c", "command -v dockerd");
             checkPb.redirectErrorStream(true);
             Process checkProcess = checkPb.start();
-            byte[] output = checkProcess.getInputStream().readAllBytes();
+            byte[] output = readAllBytes(checkProcess.getInputStream());
             int exitCode = checkProcess.waitFor();
             
             log.debug("dockerd check exit code: {}, output: {}", exitCode, new String(output).trim());
@@ -340,7 +342,7 @@ public class WindowsDockerProvider extends DockerProvider {
         
         // Check if process is still running
         if (!dockerProcess.isAlive()) {
-            byte[] output = dockerProcess.getInputStream().readAllBytes();
+            byte[] output = readAllBytes(dockerProcess.getInputStream());
             String outputStr = new String(output).trim();
             log.error("WSL process died. Output: {}", outputStr.isEmpty() ? "(empty)" : outputStr);
             
@@ -423,7 +425,7 @@ public class WindowsDockerProvider extends DockerProvider {
                     "sudo -n dockerd --version >/dev/null 2>&1 && echo yes || echo no");
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            byte[] output = process.getInputStream().readAllBytes();
+            byte[] output = readAllBytes(process.getInputStream());
             boolean completed = process.waitFor(5, TimeUnit.SECONDS);
             
             if (!completed) {
@@ -450,7 +452,7 @@ public class WindowsDockerProvider extends DockerProvider {
             ProcessBuilder pb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c", fullCommand);
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            byte[] output = process.getInputStream().readAllBytes();
+            byte[] output = readAllBytes(process.getInputStream());
             process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             return new String(output).trim();
         } catch (IOException | InterruptedException e) {
@@ -490,7 +492,7 @@ public class WindowsDockerProvider extends DockerProvider {
             ProcessBuilder pb = new ProcessBuilder("net", "session");
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            byte[] output = process.getInputStream().readAllBytes();
+            byte[] output = readAllBytes(process.getInputStream());
             int exitCode = process.waitFor();
             log.debug("Admin check (net session) exit code: {}", exitCode);
             return exitCode == 0;
@@ -510,7 +512,7 @@ public class WindowsDockerProvider extends DockerProvider {
             Process process = pb.start();
             
             // Read as bytes and convert, handling potential UTF-16 encoding
-            byte[] outputBytes = process.getInputStream().readAllBytes();
+            byte[] outputBytes = readAllBytes(process.getInputStream());
             String output = new String(outputBytes, java.nio.charset.StandardCharsets.UTF_16LE);
             
             int exitCode = process.waitFor();
@@ -564,7 +566,7 @@ public class WindowsDockerProvider extends DockerProvider {
                 ProcessBuilder testPb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c", "echo test");
                 testPb.redirectErrorStream(true);
                 Process testProcess = testPb.start();
-                testProcess.getInputStream().readAllBytes();
+                readAllBytes(testProcess.getInputStream());
                 int testExitCode = testProcess.waitFor();
                 
                 if (testExitCode == 0) {
