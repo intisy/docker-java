@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 public class LinuxDockerProvider extends DockerProvider {
     private static final Logger log = LoggerFactory.getLogger(LinuxDockerProvider.class);
 
-    private static final String ROOTLESSKIT_VERSION = "v2.1.1";
+    private static final String ROOTLESSKIT_VERSION = "v2.3.5";
     private static final String ROOTLESSKIT_DOWNLOAD_URL = "https://github.com/rootless-containers/rootlesskit/releases/download/%s/rootlesskit-%s.tar.gz";
     private static final String DOCKER_ROOTLESS_SCRIPT_URL = "https://raw.githubusercontent.com/moby/moby/master/contrib/dockerd-rootless.sh";
     private static final String DOCKER_DOWNLOAD_URL = "https://download.docker.com/linux/static/stable/%s/docker-%s.tgz";
@@ -120,9 +120,20 @@ public class LinuxDockerProvider extends DockerProvider {
         String osArch = System.getProperty("os.arch");
         switch (osArch) {
             case "amd64":
+            case "x86_64":
                 return "x86_64";
             case "aarch64":
+            case "arm64":
                 return "aarch64";
+            case "arm":
+            case "armv7l":
+                return "armv7l";
+            case "ppc64le":
+                return "ppc64le";
+            case "riscv64":
+                return "riscv64";
+            case "s390x":
+                return "s390x";
             default:
                 throw new UnsupportedOperationException("Unsupported architecture: " + osArch);
         }
