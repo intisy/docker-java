@@ -27,7 +27,7 @@ import static io.github.intisy.docker.IOUtils.readAllBytes;
 public class WindowsDockerProvider extends DockerProvider {
     private static final Logger log = LoggerFactory.getLogger(WindowsDockerProvider.class);
 
-    private static final String DOCKER_DOWNLOAD_URL = "https://download.docker.com/win/static/stable/%s/%s.zip";
+    private static final String DOCKER_DOWNLOAD_URL = "https://download.docker.com/win/static/stable/%s/docker-%s.zip";
     private static final Path DOCKER_PATH = DOCKER_DIR.resolve("docker/dockerd.exe");
     private static final Path DOCKER_VERSION_FILE = DOCKER_DIR.resolve(".docker-version");
 
@@ -107,7 +107,6 @@ public class WindowsDockerProvider extends DockerProvider {
         log.info("Checking Docker installation in WSL2 (distro: {})...", wslDistro);
         
         try {
-            // Check if dockerd exists
             ProcessBuilder checkPb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c", "command -v dockerd");
             checkPb.redirectErrorStream(true);
             Process checkProcess = checkPb.start();
@@ -241,19 +240,15 @@ public class WindowsDockerProvider extends DockerProvider {
         log.info("Docker daemon started (instance: {}, pipe: {})", instanceId, pipeName);
     }
 
-    // Port for this instance's Docker daemon (base port + hash of instance ID)
     private int dockerPort;
     
     private void startWsl2Docker() throws IOException, InterruptedException {
         ensureInstalled();
         
-        // Use TCP instead of Unix socket so Windows Java can connect
-        // Generate a unique port based on instance ID to avoid conflicts
         dockerPort = 2375 + Math.abs(instanceId.hashCode() % 1000);
-        wslSocketPath = "tcp://0.0.0.0:" + dockerPort;  // Listen on all interfaces inside WSL
+        wslSocketPath = "tcp://0.0.0.0:" + dockerPort;
         String wslLogFile = "/tmp/docker-java-" + instanceId + ".log";
         
-        // Get the actual home directory path in WSL
         String wslHome = runWslCommand("echo $HOME", false, 5);
         if (wslHome.isEmpty()) {
             wslHome = "/home/" + runWslCommand("whoami", false, 5);
@@ -264,15 +259,12 @@ public class WindowsDockerProvider extends DockerProvider {
         String wslExecDir = wslHome + "/.docker-java/instances/" + instanceId + "/exec";
         String wslPidFile = wslHome + "/.docker-java/instances/" + instanceId + "/docker.pid";
         
-        // Create directories in WSL2
         log.debug("Creating directories in WSL2 (distro: {})...", wslDistro);
         String mkdirResult = runWslCommand("mkdir -p " + wslDataDir + " " + wslExecDir + " && echo ok", false, 10);
         log.debug("mkdir result: {}", mkdirResult);
         
-        // Remove any existing socket
         runWslCommand("rm -f " + wslSocketPath, false, 5);
         
-        // Check if Docker Desktop daemon is running and might conflict
         String existingDocker = runWslCommand("pgrep -f 'dockerd' 2>/dev/null", false, 5);
         if (!existingDocker.isEmpty()) {
             log.warn("Another dockerd process may be running (PIDs: {}). This might cause conflicts.", existingDocker.replace("\n", ", "));
@@ -280,8 +272,6 @@ public class WindowsDockerProvider extends DockerProvider {
         
         log.info("Starting Docker daemon in WSL2 (instance: {}, distro: {})...", instanceId, wslDistro);
         
-        // dockerd always needs root to start (docker group only helps with client access)
-        // Check if passwordless sudo is configured
         if (!checkPasswordlessSudo()) {
             log.error("Starting dockerd requires root privileges.");
             log.error("Please run this ONE-TIME setup in WSL ({}):", wslDistro);
@@ -296,36 +286,28 @@ public class WindowsDockerProvider extends DockerProvider {
         
         log.debug("Passwordless sudo for dockerd is available");
         
-        // Check if another dockerd is running (like Docker Desktop)
         String existingDockerds = runWslCommand("pgrep -x dockerd 2>/dev/null | wc -l", false, 5).trim();
         boolean otherDockerdRunning = !"0".equals(existingDockerds) && !existingDockerds.isEmpty();
         
-        // Determine isolation flags to avoid conflicts with other Docker daemons
         String isolationFlags = "";
         if (otherDockerdRunning) {
             log.info("Another Docker daemon detected, using isolation flags to avoid conflicts");
-            // Use --iptables=false to prevent conflicts with existing Docker's iptables rules
-            // Use --bridge=none to disable default bridge (avoids need to create custom bridge device)
             isolationFlags = " --iptables=false --bridge=none";
         }
         
         log.debug("Starting dockerd directly...");
         
-        // Build the dockerd command - use TCP so Windows Java can connect
         String dockerdCmd = String.format(
                 "sudo dockerd -H %s --data-root %s --exec-root %s --pidfile %s%s",
                 wslSocketPath, wslDataDir, wslExecDir, wslPidFile, isolationFlags);
         
         log.debug("Docker command: {}", dockerdCmd);
         
-        // First, test if the command works by running dockerd --version
         String versionCheck = runWslCommand("sudo dockerd --version 2>&1", false, 10);
         log.debug("dockerd version check: {}", versionCheck);
         
-        // Clear any old log file
         runWslCommand("rm -f " + wslLogFile, false, 5);
         
-        // Start dockerd directly, capturing output
         log.debug("Executing dockerd command...");
         ProcessBuilder pb = new ProcessBuilder(
                 "wsl", "-d", wslDistro, "--", "bash", "-c",
@@ -334,46 +316,37 @@ public class WindowsDockerProvider extends DockerProvider {
         );
         pb.redirectErrorStream(true);
         
-        // Start the process
         dockerProcess = pb.start();
         
-        // Give it time to initialize (Docker 29+ has a deliberate 1s+ delay for security warnings)
         Thread.sleep(8000);
         
-        // Check if process is still running
         if (!dockerProcess.isAlive()) {
             byte[] output = readAllBytes(dockerProcess.getInputStream());
             String outputStr = new String(output).trim();
             log.error("WSL process died. Output: {}", outputStr.isEmpty() ? "(empty)" : outputStr);
             
-            // Check log file
             String logContent = runWslCommand("cat " + wslLogFile + " 2>/dev/null || echo '(no log)'", false, 5);
             log.error("Log file contents:\n{}", logContent);
             
             throw new RuntimeException("dockerd failed to start. Check logs above.");
         }
         
-        // Check if dockerd is actually running inside WSL
         String dockerdCheck = runWslCommand("pgrep -x dockerd && echo 'running' || echo 'not running'", false, 5);
         log.debug("dockerd process check: {}", dockerdCheck.trim());
         
-        // Check log file for any startup messages
         String earlyLog = runWslCommand("cat " + wslLogFile + " 2>/dev/null | head -20", false, 5);
         if (!earlyLog.isEmpty()) {
             log.debug("Early log output:\n{}", earlyLog);
         }
         
-        // Check if our specific dockerd is running (by port)
         String ourDockerd = runWslCommand("pgrep -af 'dockerd.*" + dockerPort + "' 2>/dev/null || echo 'not found'", false, 5);
         log.debug("Our dockerd process (by port {}): {}", dockerPort, ourDockerd.trim());
         
         log.debug("WSL process is alive, waiting for port {}...", dockerPort);
 
         if (!waitForWslSocket()) {
-            // Additional diagnostics when connection fails
             String portCheck = runWslCommand("ss -tlnp 2>/dev/null | grep " + dockerPort + " || echo 'port not found'", false, 5);
             log.error("Port {} status after wait: {}", dockerPort, portCheck.trim());
-            // Try to get error log
             String logContent = runWslCommand("cat " + wslLogFile + " 2>/dev/null", false, 5);
             if (!logContent.isEmpty()) {
                 log.error("Docker daemon log:\n{}", logContent);
@@ -381,19 +354,15 @@ public class WindowsDockerProvider extends DockerProvider {
                 log.error("Docker daemon log is empty.");
             }
             
-            // Check if port is listening INSIDE WSL
             String netstatCheck = runWslCommand("ss -tlnp 2>/dev/null | grep " + dockerPort + " || echo 'port not listening in WSL'", false, 5);
             log.error("Port {} status inside WSL: {}", dockerPort, netstatCheck.trim());
             
-            // Check if dockerd is running inside WSL
             String dockerdPs = runWslCommand("ps aux | grep dockerd | grep -v grep || echo 'no dockerd process'", false, 5);
             log.error("dockerd processes in WSL:\n{}", dockerdPs);
             
-            // Check if our dockerd process exists (look for our port)
             String psOutput = runWslCommand("pgrep -af 'dockerd.*" + dockerPort + "' 2>/dev/null || echo '(none with our port)'", false, 5);
             log.error("Our dockerd process: {}", psOutput);
             
-            // Check if Docker Desktop's dockerd is blocking
             String allDockerds = runWslCommand("pgrep -af dockerd 2>/dev/null || echo '(none)'", false, 5);
             if (allDockerds.contains("-H fd://")) {
                 log.error("");
@@ -401,7 +370,6 @@ public class WindowsDockerProvider extends DockerProvider {
                 log.error("Stop it with: wsl -d {} -- sudo systemctl stop docker", wslDistro);
             }
             
-            // Check if our WSL process is still running
             if (dockerProcess != null && dockerProcess.isAlive()) {
                 log.error("WSL process is still running but port not accessible from Windows");
                 log.error("This might be a WSL2 networking issue. Try: wsl --shutdown");
@@ -419,9 +387,7 @@ public class WindowsDockerProvider extends DockerProvider {
      */
     private boolean checkPasswordlessSudo() {
         try {
-            // Try sudo -n (non-interactive) to check if dockerd can be run without password
-            // We check with 'sudo -n dockerd --version' to verify dockerd specifically
-            ProcessBuilder pb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c", 
+            ProcessBuilder pb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c",
                     "sudo -n dockerd --version >/dev/null 2>&1 && echo yes || echo no");
             pb.redirectErrorStream(true);
             Process process = pb.start();
@@ -506,12 +472,10 @@ public class WindowsDockerProvider extends DockerProvider {
     
     private boolean isWsl2Available() {
         try {
-            // First check: try wsl -l -v which lists distros with their WSL version
             ProcessBuilder pb = new ProcessBuilder("wsl", "-l", "-v");
             pb.redirectErrorStream(true);
             Process process = pb.start();
             
-            // Read as bytes and convert, handling potential UTF-16 encoding
             byte[] outputBytes = readAllBytes(process.getInputStream());
             String output = new String(outputBytes, java.nio.charset.StandardCharsets.UTF_16LE);
             
@@ -523,7 +487,6 @@ public class WindowsDockerProvider extends DockerProvider {
                 return false;
             }
             
-            // Parse the output to find a usable distro (not docker-desktop or docker-desktop-data)
             String[] lines = output.split("\n");
             String defaultDistro = null;
             String usableDistro = null;
@@ -534,7 +497,6 @@ public class WindowsDockerProvider extends DockerProvider {
                     continue;
                 }
                 
-                // Check for WSL2 distro (has "2" in version column)
                 if (!line.contains("2")) {
                     continue;
                 }
@@ -542,7 +504,6 @@ public class WindowsDockerProvider extends DockerProvider {
                 boolean isDefault = line.startsWith("*");
                 String distroName = line.replace("*", "").trim().split("\\s+")[0];
                 
-                // Skip Docker Desktop's internal distros
                 if (distroName.toLowerCase().startsWith("docker-desktop")) {
                     log.debug("Skipping Docker Desktop distro: {}", distroName);
                     if (isDefault) {
@@ -551,7 +512,6 @@ public class WindowsDockerProvider extends DockerProvider {
                     continue;
                 }
                 
-                // Found a usable distro
                 if (usableDistro == null || isDefault) {
                     usableDistro = distroName;
                     log.debug("Found usable WSL2 distro: {} (default: {})", distroName, isDefault);
@@ -562,7 +522,6 @@ public class WindowsDockerProvider extends DockerProvider {
                 wslDistro = usableDistro;
                 log.info("Using WSL2 distro: {}", wslDistro);
                 
-                // Verify the distro has bash
                 ProcessBuilder testPb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c", "echo test");
                 testPb.redirectErrorStream(true);
                 Process testProcess = testPb.start();
@@ -577,7 +536,6 @@ public class WindowsDockerProvider extends DockerProvider {
                 }
             }
             
-            // No usable distro found
             if (defaultDistro != null && defaultDistro.toLowerCase().startsWith("docker-desktop")) {
                 log.warn("Only Docker Desktop WSL distros found. These cannot be used to run dockerd.");
                 log.warn("Install a Linux distro with: wsl --install -d Ubuntu");
@@ -596,7 +554,6 @@ public class WindowsDockerProvider extends DockerProvider {
     public DockerClient getClient() {
         if (this.dockerClient == null) {
             if (usingWsl2) {
-                // Connect via TCP to WSL2
                 String host = wslIpAddress != null ? wslIpAddress : "localhost";
                 this.dockerClient = DockerClient.builder()
                         .withHost("tcp://" + host + ":" + dockerPort)
@@ -617,7 +574,6 @@ public class WindowsDockerProvider extends DockerProvider {
         if (dockerProcess != null) {
             if (usingWsl2 && wslDistro != null) {
                 try {
-                    // Kill dockerd process by port
                     ProcessBuilder pb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c",
                             "sudo -n pkill -f 'dockerd.*" + dockerPort + "' 2>/dev/null ; " +
                             "rm -rf ~/.docker-java/instances/" + instanceId);
@@ -670,7 +626,6 @@ public class WindowsDockerProvider extends DockerProvider {
 
     @SuppressWarnings("BusyWait")
     private boolean waitForWslSocket() throws InterruptedException {
-        // Get WSL2's IP address
         wslIpAddress = runWslCommand("hostname -I | awk '{print $1}'", false, 5).trim();
         if (wslIpAddress.isEmpty()) {
             wslIpAddress = "localhost";
@@ -682,8 +637,7 @@ public class WindowsDockerProvider extends DockerProvider {
         long startTime = System.currentTimeMillis();
         int attempts = 0;
         
-        // Try both localhost and WSL IP
-        String[] hosts = wslIpAddress.equals("localhost") ? 
+        String[] hosts = wslIpAddress.equals("localhost") ?
                 new String[]{"localhost"} : 
                 new String[]{"localhost", wslIpAddress};
         
@@ -695,20 +649,17 @@ public class WindowsDockerProvider extends DockerProvider {
                     java.net.Socket socket = new java.net.Socket();
                     socket.connect(new java.net.InetSocketAddress(host, dockerPort), 1000);
                     socket.close();
-                    wslIpAddress = host; // Remember which one worked
+                    wslIpAddress = host;
                     log.debug("Docker daemon is listening on {}:{} after {} attempts", host, dockerPort, attempts);
                     
-                    // Verify our dockerd is actually running
                     String verify = runWslCommand("ss -tlnp 2>/dev/null | grep " + dockerPort, false, 5);
                     log.debug("Port {} listener info: {}", dockerPort, verify.trim());
                     
                     return true;
                 } catch (IOException e) {
-                    // Not ready yet on this host
                 }
             }
             
-            // Log progress every 10 seconds
             if (attempts % 20 == 0) {
                 log.debug("Still waiting for Docker daemon... ({} seconds elapsed)", (System.currentTimeMillis() - startTime) / 1000);
             }

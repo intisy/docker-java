@@ -37,7 +37,8 @@ public class DockerVersionFetcher {
 
                 try (InputStreamReader reader = new InputStreamReader(conn.getInputStream())) {
                     JsonObject jsonObject = new Gson().fromJson(reader, JsonObject.class);
-                    latestVersion = jsonObject.get("tag_name").getAsString().replace("v", "");
+                    String tagName = jsonObject.get("tag_name").getAsString();
+                    latestVersion = tagName.replace("v", "").replace("docker-", "");
                     log.debug("Latest Docker version: {}", latestVersion);
                 }
             } catch (IOException e) {
