@@ -34,13 +34,18 @@ public class InfoCmd {
             }
 
             String body = response.getBody();
-            log.debug("Raw /info response (first 2000 chars): {}", 
-                    body.length() > 2000 ? body.substring(0, 2000) + "..." : body);
             
             try {
                 return client.getGson().fromJson(body, SystemInfo.class);
             } catch (Exception e) {
-                log.error("Failed to parse /info response. Response body: {}", body);
+                System.err.println("=== DOCKER INFO PARSE ERROR ===");
+                System.err.println("Exception: " + e.getClass().getName() + ": " + e.getMessage());
+                if (e.getCause() != null) {
+                    System.err.println("Caused by: " + e.getCause().getClass().getName() + ": " + e.getCause().getMessage());
+                }
+                System.err.println("Response body (first 3000 chars):");
+                System.err.println(body.length() > 3000 ? body.substring(0, 3000) + "..." : body);
+                System.err.println("=== END DOCKER INFO PARSE ERROR ===");
                 throw e;
             }
         } catch (IOException e) {

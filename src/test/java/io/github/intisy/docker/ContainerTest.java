@@ -39,12 +39,11 @@ public class ContainerTest {
         dockerProvider.start();
         dockerClient = dockerProvider.getClient();
         
-        // Try ping with retries since dockerd might still be initializing
         int maxRetries = 10;
         Exception lastException = null;
         for (int i = 0; i < maxRetries; i++) {
             try {
-                Thread.sleep(1000); // Wait a bit before each attempt
+                Thread.sleep(1000);
                 dockerClient.ping().execOrThrow();
                 log.info("Docker daemon is ready (attempt {})", i + 1);
                 lastException = null;
@@ -56,7 +55,6 @@ public class ContainerTest {
         }
         if (lastException != null) {
             log.error("Ping failed after {} attempts: {}", maxRetries, lastException.getMessage());
-            // Dump dockerd log for diagnostics
             if (dockerProvider instanceof WindowsDockerProvider) {
                 try {
                     ProcessBuilder pb = new ProcessBuilder("wsl", "-d", "Ubuntu", "--", "cat", "/tmp/docker-java-" + dockerProvider.getInstanceId() + ".log");

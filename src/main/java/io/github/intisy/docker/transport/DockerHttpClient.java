@@ -315,6 +315,7 @@ public class DockerHttpClient implements Closeable {
         request.append(method).append(" /").append(API_VERSION).append(path).append(" HTTP/1.1\r\n");
         request.append("Host: docker\r\n");
         request.append("Content-Type: application/json\r\n");
+        request.append("Connection: close\r\n");
         
         byte[] bodyBytes = body != null ? body.getBytes(StandardCharsets.UTF_8) : new byte[0];
         if (bodyBytes.length > 0) {
@@ -338,6 +339,7 @@ public class DockerHttpClient implements Closeable {
         int statusCode = parseStatusCode(statusLine);
         
         Map<String, List<String>> headers = new HashMap<>();
+        boolean isChunked = false;
         String headerLine;
         while ((headerLine = reader.readLine()) != null && !headerLine.isEmpty()) {
             int colonIndex = headerLine.indexOf(':');
@@ -345,6 +347,9 @@ public class DockerHttpClient implements Closeable {
                 String name = headerLine.substring(0, colonIndex).trim();
                 String value = headerLine.substring(colonIndex + 1).trim();
                 headers.computeIfAbsent(name, k -> new ArrayList<>()).add(value);
+                if (name.equalsIgnoreCase("Transfer-Encoding") && value.equalsIgnoreCase("chunked")) {
+                    isChunked = true;
+                }
             }
         }
         
@@ -359,15 +364,75 @@ public class DockerHttpClient implements Closeable {
         }
         
         try {
-            String line;
-            while ((line = reader.readLine()) != null && !callback.isCancelled()) {
-                if (!line.isEmpty()) {
-                    callback.onNext(line);
+            if (isChunked) {
+                readChunkedStream(reader, callback);
+            } else {
+                String line;
+                while ((line = reader.readLine()) != null && !callback.isCancelled()) {
+                    if (!line.isEmpty()) {
+                        callback.onNext(line);
+                    }
                 }
             }
             callback.onComplete();
         } catch (IOException e) {
             callback.onError(e);
+        }
+    }
+    
+    /**
+     * Read a chunked transfer encoding stream and pass JSON objects to the callback.
+     */
+    private void readChunkedStream(BufferedReader reader, StreamCallback<String> callback) throws IOException {
+        while (!callback.isCancelled()) {
+            String chunkSizeLine = reader.readLine();
+            if (chunkSizeLine == null) {
+                break;
+            }
+            
+            String sizeStr = chunkSizeLine.trim();
+            if (sizeStr.isEmpty()) {
+                continue;
+            }
+            
+            int semicolonIndex = sizeStr.indexOf(';');
+            if (semicolonIndex > 0) {
+                sizeStr = sizeStr.substring(0, semicolonIndex);
+            }
+            
+            int chunkSize;
+            try {
+                chunkSize = Integer.parseInt(sizeStr, 16);
+            } catch (NumberFormatException e) {
+                if (!chunkSizeLine.isEmpty()) {
+                    callback.onNext(chunkSizeLine);
+                }
+                continue;
+            }
+            
+            if (chunkSize == 0) {
+                break;
+            }
+            
+            char[] chunkData = new char[chunkSize];
+            int totalRead = 0;
+            while (totalRead < chunkSize) {
+                int read = reader.read(chunkData, totalRead, chunkSize - totalRead);
+                if (read == -1) break;
+                totalRead += read;
+            }
+            
+            String data = new String(chunkData, 0, totalRead).trim();
+            if (!data.isEmpty()) {
+                for (String line : data.split("\n")) {
+                    String trimmed = line.trim();
+                    if (!trimmed.isEmpty()) {
+                        callback.onNext(trimmed);
+                    }
+                }
+            }
+            
+            reader.readLine();
         }
     }
 
@@ -468,8 +533,11 @@ public class DockerHttpClient implements Closeable {
             throw new IOException("No response from server");
         }
         int statusCode = parseStatusCode(statusLine);
+        log.trace("Response status: {}", statusCode);
         
         Map<String, List<String>> headers = new HashMap<>();
+        boolean isChunked = false;
+        int contentLength = -1;
         String headerLine;
         while ((headerLine = reader.readLine()) != null && !headerLine.isEmpty()) {
             int colonIndex = headerLine.indexOf(':');
@@ -477,16 +545,97 @@ public class DockerHttpClient implements Closeable {
                 String name = headerLine.substring(0, colonIndex).trim();
                 String value = headerLine.substring(colonIndex + 1).trim();
                 headers.computeIfAbsent(name, k -> new ArrayList<>()).add(value);
+                
+                if (name.equalsIgnoreCase("Transfer-Encoding") && value.equalsIgnoreCase("chunked")) {
+                    isChunked = true;
+                }
+                if (name.equalsIgnoreCase("Content-Length")) {
+                    try {
+                        contentLength = Integer.parseInt(value);
+                    } catch (NumberFormatException ignored) {}
+                }
             }
         }
+        log.trace("Response isChunked={}, contentLength={}", isChunked, contentLength);
         
-        StringBuilder body = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            body.append(line);
+        String body;
+        if (isChunked) {
+            log.trace("Reading chunked body...");
+            body = readChunkedBody(reader);
+            log.trace("Chunked body read complete, length={}", body.length());
+        } else if (contentLength > 0) {
+            log.trace("Reading fixed-length body, contentLength={}", contentLength);
+            char[] buffer = new char[contentLength];
+            int totalRead = 0;
+            while (totalRead < contentLength) {
+                int read = reader.read(buffer, totalRead, contentLength - totalRead);
+                if (read == -1) break;
+                totalRead += read;
+            }
+            body = new String(buffer, 0, totalRead);
+            log.trace("Fixed-length body read complete");
+        } else {
+            log.trace("Reading body until EOF...");
+            StringBuilder sb = new StringBuilder();
+            char[] buffer = new char[4096];
+            int read;
+            while ((read = reader.read(buffer)) != -1) {
+                sb.append(buffer, 0, read);
+            }
+            body = sb.toString();
+            log.trace("EOF body read complete, length={}", body.length());
         }
         
-        return new DockerResponse(statusCode, headers, body.toString());
+        return new DockerResponse(statusCode, headers, body);
+    }
+    
+    /**
+     * Read a chunked transfer encoding body.
+     * Format: &lt;size-in-hex&gt;\r\n&lt;chunk-data&gt;\r\n... 0\r\n\r\n
+     */
+    private String readChunkedBody(BufferedReader reader) throws IOException {
+        StringBuilder body = new StringBuilder();
+        
+        while (true) {
+            String chunkSizeLine = reader.readLine();
+            if (chunkSizeLine == null || chunkSizeLine.isEmpty()) {
+                break;
+            }
+            
+            String sizeStr = chunkSizeLine.trim();
+            if (sizeStr.isEmpty()) {
+                continue;
+            }
+            
+            int semicolonIndex = sizeStr.indexOf(';');
+            if (semicolonIndex > 0) {
+                sizeStr = sizeStr.substring(0, semicolonIndex);
+            }
+            
+            int chunkSize;
+            try {
+                chunkSize = Integer.parseInt(sizeStr, 16);
+            } catch (NumberFormatException e) {
+                break;
+            }
+            
+            if (chunkSize == 0) {
+                break;
+            }
+            
+            char[] chunkData = new char[chunkSize];
+            int totalRead = 0;
+            while (totalRead < chunkSize) {
+                int read = reader.read(chunkData, totalRead, chunkSize - totalRead);
+                if (read == -1) break;
+                totalRead += read;
+            }
+            body.append(chunkData, 0, totalRead);
+            
+            reader.readLine();
+        }
+        
+        return body.toString();
     }
 
     private DockerResponse parseHttpResponseFromPipe(RandomAccessFile pipe) throws IOException {
@@ -512,6 +661,7 @@ public class DockerHttpClient implements Closeable {
         
         Map<String, List<String>> headers = new HashMap<>();
         int contentLength = -1;
+        boolean isChunked = false;
         for (int i = 1; i < headerLines.length; i++) {
             String headerLine = headerLines[i];
             int colonIndex = headerLine.indexOf(':');
@@ -520,30 +670,98 @@ public class DockerHttpClient implements Closeable {
                 String value = headerLine.substring(colonIndex + 1).trim();
                 headers.computeIfAbsent(name, k -> new ArrayList<>()).add(value);
                 if (name.equalsIgnoreCase("Content-Length")) {
-                    contentLength = Integer.parseInt(value);
+                    try {
+                        contentLength = Integer.parseInt(value);
+                    } catch (NumberFormatException ignored) {}
+                }
+                if (name.equalsIgnoreCase("Transfer-Encoding") && value.equalsIgnoreCase("chunked")) {
+                    isChunked = true;
                 }
             }
         }
         
-        StringBuilder body = new StringBuilder();
-        if (parts.length > 1) {
-            body.append(parts[1]);
-        }
+        String body;
+        String initialBody = parts.length > 1 ? parts[1] : "";
         
-        if (contentLength > 0) {
-            int remaining = contentLength - body.length();
+        if (isChunked) {
+            body = readChunkedBodyFromPipe(pipe, initialBody);
+        } else if (contentLength > 0) {
+            StringBuilder sb = new StringBuilder(initialBody);
+            int remaining = contentLength - initialBody.length();
             for (int i = 0; i < remaining; i++) {
                 int c = pipe.read();
                 if (c == -1) break;
-                body.append((char) c);
+                sb.append((char) c);
             }
+            body = sb.toString();
         } else {
+            StringBuilder sb = new StringBuilder(initialBody);
             while ((ch = pipe.read()) != -1) {
-                body.append((char) ch);
+                sb.append((char) ch);
+            }
+            body = sb.toString();
+        }
+        
+        return new DockerResponse(statusCode, headers, body);
+    }
+    
+    /**
+     * Read a chunked transfer encoding body from a pipe.
+     */
+    private String readChunkedBodyFromPipe(RandomAccessFile pipe, String initialData) throws IOException {
+        StringBuilder body = new StringBuilder();
+        StringBuilder lineBuilder = new StringBuilder(initialData);
+        
+        while (true) {
+            while (!lineBuilder.toString().contains("\n")) {
+                int c = pipe.read();
+                if (c == -1) {
+                    return body.toString();
+                }
+                lineBuilder.append((char) c);
+            }
+            
+            String data = lineBuilder.toString();
+            int newlineIndex = data.indexOf('\n');
+            String chunkSizeLine = data.substring(0, newlineIndex).trim();
+            lineBuilder = new StringBuilder(data.substring(newlineIndex + 1));
+            
+            int semicolonIndex = chunkSizeLine.indexOf(';');
+            if (semicolonIndex > 0) {
+                chunkSizeLine = chunkSizeLine.substring(0, semicolonIndex);
+            }
+            
+            int chunkSize;
+            try {
+                chunkSize = Integer.parseInt(chunkSizeLine.trim(), 16);
+            } catch (NumberFormatException e) {
+                break;
+            }
+            
+            if (chunkSize == 0) {
+                break;
+            }
+            
+            while (lineBuilder.length() < chunkSize) {
+                int c = pipe.read();
+                if (c == -1) break;
+                lineBuilder.append((char) c);
+            }
+            
+            body.append(lineBuilder.substring(0, Math.min(chunkSize, lineBuilder.length())));
+            lineBuilder = new StringBuilder(lineBuilder.length() > chunkSize ? lineBuilder.substring(chunkSize) : "");
+            
+            while (lineBuilder.length() < 2) {
+                int c = pipe.read();
+                if (c == -1) break;
+                lineBuilder.append((char) c);
+            }
+            if (lineBuilder.length() >= 2) {
+                lineBuilder = new StringBuilder(lineBuilder.substring(lineBuilder.toString().startsWith("\r\n") ? 2 : (lineBuilder.toString().startsWith("\n") ? 1 : 0)));
             }
         }
         
-        return new DockerResponse(statusCode, headers, body.toString());
+        return body.toString();
     }
 
     private int parseStatusCode(String statusLine) {

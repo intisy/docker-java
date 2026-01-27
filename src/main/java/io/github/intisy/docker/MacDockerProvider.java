@@ -45,7 +45,8 @@ public class MacDockerProvider extends DockerProvider {
 
     public MacDockerProvider() {
         this.instanceId = UUID.randomUUID().toString().substring(0, 8);
-        this.instanceDir = DOCKER_DIR.resolve("instances").resolve(instanceId);
+        Path baseDir = getBaseDirectory();
+        this.instanceDir = baseDir.resolve("instances").resolve(instanceId);
         this.runDir = instanceDir.resolve("run");
         this.dataDir = instanceDir.resolve("data");
         this.execDir = instanceDir.resolve("exec");

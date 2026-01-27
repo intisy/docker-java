@@ -46,7 +46,8 @@ public class WindowsDockerProvider extends DockerProvider {
 
     public WindowsDockerProvider() {
         this.instanceId = UUID.randomUUID().toString().substring(0, 8);
-        this.instanceDir = DOCKER_DIR.resolve("instances").resolve(instanceId);
+        Path baseDir = getBaseDirectory();
+        this.instanceDir = baseDir.resolve("instances").resolve(instanceId);
         this.pipeName = "docker_java_" + instanceId;
         this.dockerPipePath = Paths.get("\\\\.\\pipe\\" + pipeName);
         this.dataDir = instanceDir.resolve("data");
@@ -255,9 +256,11 @@ public class WindowsDockerProvider extends DockerProvider {
         }
         log.debug("WSL home directory: {}", wslHome);
         
-        String wslDataDir = wslHome + "/.docker-java/instances/" + instanceId + "/data";
-        String wslExecDir = wslHome + "/.docker-java/instances/" + instanceId + "/exec";
-        String wslPidFile = wslHome + "/.docker-java/instances/" + instanceId + "/docker.pid";
+        String wslBase = getWslBaseDirectory();
+        String wslBaseDir = wslHome + "/" + wslBase + "/instances/" + instanceId;
+        String wslDataDir = wslBaseDir + "/data";
+        String wslExecDir = wslBaseDir + "/exec";
+        String wslPidFile = wslBaseDir + "/docker.pid";
         
         log.debug("Creating directories in WSL2 (distro: {})...", wslDistro);
         String mkdirResult = runWslCommand("mkdir -p " + wslDataDir + " " + wslExecDir + " && echo ok", false, 10);
@@ -574,9 +577,10 @@ public class WindowsDockerProvider extends DockerProvider {
         if (dockerProcess != null) {
             if (usingWsl2 && wslDistro != null) {
                 try {
+                    String wslBase = getWslBaseDirectory();
                     ProcessBuilder pb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c",
                             "sudo -n pkill -f 'dockerd.*" + dockerPort + "' 2>/dev/null ; " +
-                            "rm -rf ~/.docker-java/instances/" + instanceId);
+                            "rm -rf ~/" + wslBase + "/instances/" + instanceId);
                     pb.start().waitFor(5, TimeUnit.SECONDS);
                 } catch (IOException | InterruptedException e) {
                     log.warn("Failed to stop WSL2 Docker daemon: {}", e.getMessage());
