@@ -10,11 +10,83 @@ import java.nio.file.Paths;
  * <p>
  * Each provider instance is isolated and can run simultaneously with other instances.
  * Use {@link #getInstanceId()} to get the unique identifier for this instance.
+ * <p>
+ * The base directory for storing Docker data can be configured using {@link #setBaseDirectory(Path)}
+ * before creating any providers. By default, it uses {@code ~/.docker-java/}.
  *
  * @author Finn Birich
  */
 public abstract class DockerProvider {
-    protected static final Path DOCKER_DIR = Paths.get(System.getProperty("user.home"), ".docker-java");
+    private static final Path DEFAULT_DOCKER_DIR = Paths.get(System.getProperty("user.home"), ".docker-java");
+    private static final String DEFAULT_WSL_BASE = ".docker-java";
+    
+    private static Path baseDirectory = DEFAULT_DOCKER_DIR;
+    private static String wslBaseDirectory = DEFAULT_WSL_BASE;
+    
+    /**
+     * Set the base directory for storing Docker data and instances.
+     * This must be called before creating any DockerProvider instances.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * DockerProvider.setBaseDirectory(Paths.get("/custom/path/docker-java"));
+     * DockerProvider provider = DockerProvider.get();
+     * }</pre>
+     *
+     * @param path The base directory path
+     */
+    public static void setBaseDirectory(Path path) {
+        baseDirectory = path;
+    }
+    
+    /**
+     * Get the current base directory for storing Docker data.
+     *
+     * @return The base directory path
+     */
+    public static Path getBaseDirectory() {
+        return baseDirectory;
+    }
+    
+    /**
+     * Set the base directory path for WSL2 (Windows Subsystem for Linux).
+     * This is used when running Docker in WSL2 mode on Windows.
+     * The path is relative to the WSL user's home directory.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * DockerProvider.setWslBaseDirectory(".my-docker-data");
+     * // Results in ~/. my-docker-data/ inside WSL2
+     * }</pre>
+     *
+     * @param path The WSL base directory path (relative to home)
+     */
+    public static void setWslBaseDirectory(String path) {
+        wslBaseDirectory = path;
+    }
+    
+    /**
+     * Get the WSL base directory path.
+     *
+     * @return The WSL base directory path (relative to home)
+     */
+    public static String getWslBaseDirectory() {
+        return wslBaseDirectory;
+    }
+    
+    /**
+     * Reset the base directory to the default ({@code ~/.docker-java/}).
+     */
+    public static void resetBaseDirectory() {
+        baseDirectory = DEFAULT_DOCKER_DIR;
+        wslBaseDirectory = DEFAULT_WSL_BASE;
+    }
+    
+    /**
+     * @deprecated Use {@link #getBaseDirectory()} instead
+     */
+    @Deprecated
+    protected static final Path DOCKER_DIR = DEFAULT_DOCKER_DIR;
 
     /**
      * Get the appropriate DockerProvider for the current operating system.

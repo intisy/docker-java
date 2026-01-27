@@ -55,8 +55,9 @@ public class LinuxDockerProvider extends DockerProvider {
     
     public LinuxDockerProvider() {
         this.instanceId = UUID.randomUUID().toString().substring(0, 8);
-        this.instanceDir = DOCKER_DIR.resolve("instances").resolve(instanceId);
-        setPath(DOCKER_DIR);
+        Path baseDir = getBaseDirectory();
+        this.instanceDir = baseDir.resolve("instances").resolve(instanceId);
+        setPath(baseDir);
         log.debug("Created LinuxDockerProvider with instance ID: {}", instanceId);
     }
     
@@ -253,16 +254,37 @@ public class LinuxDockerProvider extends DockerProvider {
     }
 
     private void cleanupInstanceDirectory() {
+        if (!Files.exists(instanceDir)) {
+            return;
+        }
+        
         try {
-            if (Files.exists(instanceDir)) {
-                try (java.util.stream.Stream<Path> walk = Files.walk(instanceDir)) {
-                    walk.sorted(java.util.Comparator.reverseOrder())
-                            .map(Path::toFile)
-                            .forEach(File::delete);
-                }
+            ProcessBuilder pb = new ProcessBuilder("rm", "-rf", instanceDir.toString());
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            boolean completed = process.waitFor(30, TimeUnit.SECONDS);
+            if (!completed) {
+                process.destroyForcibly();
+                log.warn("Cleanup timed out for instance directory: {}", instanceDir);
+            } else if (process.exitValue() != 0) {
+                log.warn("Cleanup returned non-zero exit code for instance directory: {}", instanceDir);
             }
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             log.warn("Failed to clean up instance directory: {}", e.getMessage());
+            try {
+                if (Files.exists(instanceDir)) {
+                    try (java.util.stream.Stream<Path> walk = Files.walk(instanceDir)) {
+                        walk.sorted(java.util.Comparator.reverseOrder())
+                                .forEach(path -> {
+                                    try {
+                                        Files.deleteIfExists(path);
+                                    } catch (IOException ignored) {
+                                    }
+                                });
+                    }
+                }
+            } catch (IOException ignored) {
+            }
         }
     }
 

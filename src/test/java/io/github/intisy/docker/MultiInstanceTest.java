@@ -61,7 +61,11 @@ public class MultiInstanceTest {
             String containerName1 = "multi-test-1-" + System.currentTimeMillis();
             String containerName2 = "multi-test-2-" + System.currentTimeMillis();
 
+            log.info("Pulling alpine:latest on provider 1...");
             client1.pullImage("alpine:latest").exec(5, java.util.concurrent.TimeUnit.MINUTES);
+            
+            log.info("Pulling alpine:latest on provider 2...");
+            client2.pullImage("alpine:latest").exec(5, java.util.concurrent.TimeUnit.MINUTES);
 
             CreateContainerResponse response1 = client1.createContainer("alpine:latest")
                     .withName(containerName1)
