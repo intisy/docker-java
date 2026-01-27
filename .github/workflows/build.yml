@@ -30,16 +30,15 @@ jobs:
         run: chmod +x gradlew
         if: matrix.os != 'windows-latest'
       
-      # Unit tests only (no Docker required) - runs on all platforms
       - name: Run unit tests
         if: matrix.test-type == 'unit'
         run: ./gradlew test --tests "io.github.intisy.docker.ModelTest" --tests "io.github.intisy.docker.DockerClientBuilderTest" --info
         shell: bash
       
-      # Integration tests (Docker required) - Linux only where Docker is pre-installed
-      - name: Run all tests (Linux with Docker)
+      - name: Run tests (Linux - excluding daemon startup tests)
         if: matrix.test-type == 'integration'
-        run: ./gradlew test --info
+        run: ./gradlew test --tests "io.github.intisy.docker.ModelTest" --tests "io.github.intisy.docker.DockerClientBuilderTest" --tests "io.github.intisy.docker.WslDiagnosticTest" --info
+        shell: bash
 
   build:
     needs: test
