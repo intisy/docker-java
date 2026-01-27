@@ -36,7 +36,7 @@ public class SystemInfo {
     private List<List<String>> driverStatus;
 
     @SerializedName("Plugins")
-    private Plugins plugins;
+    private Object plugins;
 
     @SerializedName("MemoryLimit")
     private Boolean memoryLimit;
@@ -135,7 +135,7 @@ public class SystemInfo {
     private String serverVersion;
 
     @SerializedName("Runtimes")
-    private Map<String, Runtime> runtimes;
+    private Map<String, Object> runtimes;
 
     @SerializedName("DefaultRuntime")
     private String defaultRuntime;
@@ -174,7 +174,7 @@ public class SystemInfo {
         return driver;
     }
 
-    public Plugins getPlugins() {
+    public Object getPlugins() {
         return plugins;
     }
 
@@ -228,58 +228,6 @@ public class SystemInfo {
 
     public String getDefaultRuntime() {
         return defaultRuntime;
-    }
-
-    /**
-     * Docker plugins info.
-     */
-    public static class Plugins {
-        @SerializedName("Volume")
-        private List<String> volume;
-
-        @SerializedName("Network")
-        private List<String> network;
-
-        @SerializedName("Authorization")
-        private List<String> authorization;
-
-        @SerializedName("Log")
-        private List<String> log;
-
-        public List<String> getVolume() {
-            return volume;
-        }
-
-        public List<String> getNetwork() {
-            return network;
-        }
-
-        public List<String> getAuthorization() {
-            return authorization;
-        }
-
-        public List<String> getLog() {
-            return log;
-        }
-    }
-
-    /**
-     * Runtime info.
-     */
-    public static class Runtime {
-        @SerializedName("path")
-        private String path;
-
-        @SerializedName("runtimeArgs")
-        private List<String> runtimeArgs;
-
-        public String getPath() {
-            return path;
-        }
-
-        public List<String> getRuntimeArgs() {
-            return runtimeArgs;
-        }
     }
 
     @Override
