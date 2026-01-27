@@ -42,8 +42,30 @@ jobs:
 
   build:
     needs: test
-    uses: intisy/workflows/.github/workflows/build.yml@main
-    with:
-      ref_name: ${{ github.ref_name }}
-    secrets:
-      envPAT: ${{ secrets.PAT }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout project sources
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+
+      - name: Setup Git
+        run: echo ${{ secrets.PAT }} | gh auth login --with-token
+        
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v3
+        
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run build with Gradle Wrapper (skip tests - already run in test job)
+        run: ./gradlew build -x test -Partifact_version=${{ github.ref_name }}
+
+      - name: Create Release and Upload Jar
+        run: |
+          gh release create ${{ github.ref_name }} -t "Release ${{ github.ref_name }}"
+          gh release upload "${{ github.ref_name }}" build/libs/* --clobber
