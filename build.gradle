@@ -1,5 +1,5 @@
 plugins {
-    id "java"
+    id "java-library"
     id "com.github.johnrengelman.shadow" version "8.1.1"
     id "io.github.intisy.online-gradle" version "1.7.2"
 }
@@ -19,9 +19,9 @@ repositories {
 }
 
 dependencies {
-    implementation "com.google.code.gson:gson:2.10.1"
-    implementation "org.apache.commons:commons-compress:1.24.0"
-    implementation "com.kohlschutter.junixsocket:junixsocket-core:2.9.0"
+    api "com.google.code.gson:gson:2.10.1"
+    api "org.apache.commons:commons-compress:1.24.0"
+    api "com.kohlschutter.junixsocket:junixsocket-core:2.9.0"
     implementation "org.slf4j:slf4j-simple:2.0.7"
     testImplementation "org.junit.jupiter:junit-jupiter:5.10.1"
 }
