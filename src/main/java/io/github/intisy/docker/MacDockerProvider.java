@@ -46,7 +46,7 @@ public class MacDockerProvider extends DockerProvider {
 
     private final String instanceId;
     private final String vmName;
-    
+
     private final Path instanceDir;
 
     private DockerClient dockerClient;
@@ -72,11 +72,11 @@ public class MacDockerProvider extends DockerProvider {
             log.info("Lima not found. Downloading Lima {}...", LIMA_VERSION);
             downloadAndInstallLima();
         }
-        
+
         if (!isLimaInstalled()) {
             throw new IOException("Failed to install Lima. Please install manually: brew install lima");
         }
-        
+
         log.info("Lima is ready");
     }
 
@@ -101,7 +101,7 @@ public class MacDockerProvider extends DockerProvider {
                 Process process = pb.start();
                 byte[] output = readAllBytes(process.getInputStream());
                 int exitCode = process.waitFor();
-                
+
                 if (exitCode == 0) {
                     log.debug("Local Lima version: {}", new String(output).trim());
                     return true;
@@ -110,14 +110,14 @@ public class MacDockerProvider extends DockerProvider {
                 log.debug("Local Lima check failed: {}", e.getMessage());
             }
         }
-        
+
         try {
             ProcessBuilder pb = new ProcessBuilder("limactl", "--version");
             pb.redirectErrorStream(true);
             Process process = pb.start();
             byte[] output = readAllBytes(process.getInputStream());
             int exitCode = process.waitFor();
-            
+
             if (exitCode == 0) {
                 log.debug("System Lima version: {}", new String(output).trim());
                 return true;
@@ -136,9 +136,9 @@ public class MacDockerProvider extends DockerProvider {
     private void downloadAndInstallLima() throws IOException {
         String arch = getArch();
         String downloadUrl = String.format(LIMA_DOWNLOAD_URL, LIMA_VERSION, LIMA_VERSION, arch);
-        
+
         log.info("Downloading Lima from {}...", downloadUrl);
-        
+
         if (Files.exists(LIMA_DIR)) {
             try (java.util.stream.Stream<Path> walk = Files.walk(LIMA_DIR)) {
                 walk.sorted(java.util.Comparator.reverseOrder())
@@ -147,17 +147,17 @@ public class MacDockerProvider extends DockerProvider {
             }
         }
         Files.createDirectories(LIMA_DIR);
-        
+
         URL url = new URL(downloadUrl);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setInstanceFollowRedirects(true);
         connection.setRequestMethod("GET");
-        
+
         int responseCode = connection.getResponseCode();
         if (responseCode != 200) {
             throw new IOException("Failed to download Lima from " + downloadUrl + ". Status code: " + responseCode);
         }
-        
+
         try (InputStream is = connection.getInputStream();
              GzipCompressorInputStream gzis = new GzipCompressorInputStream(is);
              TarArchiveInputStream tis = new TarArchiveInputStream(gzis)) {
@@ -176,9 +176,9 @@ public class MacDockerProvider extends DockerProvider {
                 }
             }
         }
-        
+
         Files.write(LIMA_VERSION_FILE, LIMA_VERSION.getBytes());
-        
+
         log.info("Lima {} installed successfully", LIMA_VERSION);
     }
 
@@ -202,20 +202,20 @@ public class MacDockerProvider extends DockerProvider {
     @Override
     public void start() throws IOException, InterruptedException {
         log.info("Starting Docker via Lima VM (instance: {})...", instanceId);
-        
+
         ensureInstalled();
         Files.createDirectories(instanceDir);
-        
+
         dockerPort = 2375 + Math.abs(instanceId.hashCode() % 1000);
-        
+
         createAndStartLimaVm();
-        
+
         if (!waitForDocker()) {
             String logs = getLimaLogs();
             log.error("Lima VM logs:\n{}", logs);
             throw new RuntimeException("Docker daemon in Lima VM failed to start. See logs above.");
         }
-        
+
         log.info("Docker daemon started in Lima VM (instance: {}, port: {})", instanceId, dockerPort);
     }
 
@@ -224,10 +224,10 @@ public class MacDockerProvider extends DockerProvider {
      */
     private void createAndStartLimaVm() throws IOException, InterruptedException {
         String limactl = getLimactlPath();
-        
+
         String vmStatus = runLimaCommand(limactl, "list", "--format", "{{.Name}}:{{.Status}}");
         boolean vmExists = vmStatus.contains(vmName + ":");
-        
+
         if (vmExists) {
             log.info("Lima VM {} already exists, checking status...", vmName);
             if (vmStatus.contains(vmName + ":Running")) {
@@ -243,30 +243,30 @@ public class MacDockerProvider extends DockerProvider {
                 return;
             }
         }
-        
+
         Path configPath = instanceDir.resolve("lima.yaml");
         String limaConfig = createLimaConfig();
         Files.write(configPath, limaConfig.getBytes());
-        
+
         log.info("Creating Lima VM {} with Docker...", vmName);
-        
+
         ProcessBuilder pb = new ProcessBuilder(limactl, "start", "--name=" + vmName, configPath.toString());
         pb.redirectErrorStream(true);
         pb.inheritIO();
         Process process = pb.start();
-        
+
         boolean completed = process.waitFor(10, TimeUnit.MINUTES);
         if (!completed) {
             process.destroyForcibly();
             throw new RuntimeException("Lima VM creation timed out after 10 minutes");
         }
-        
+
         if (process.exitValue() != 0) {
             throw new RuntimeException("Failed to create Lima VM. Exit code: " + process.exitValue());
         }
-        
+
         vmStartedByUs = true;
-        
+
         ensureDockerRunning();
     }
 
@@ -336,13 +336,13 @@ public class MacDockerProvider extends DockerProvider {
      */
     private void ensureDockerRunning() throws IOException, InterruptedException {
         log.debug("Ensuring Docker is running in Lima VM {}...", vmName);
-        
+
         String result = runLimaShellCommand("systemctl is-active docker || true");
         if (!"active".equals(result.trim())) {
             log.info("Starting Docker in Lima VM...");
             runLimaShellCommand("sudo systemctl start docker");
         }
-        
+
         String tcpCheck = runLimaShellCommand("ss -tlnp | grep 2375 || true");
         if (tcpCheck.trim().isEmpty()) {
             log.info("Configuring Docker to listen on TCP...");
@@ -401,16 +401,16 @@ public class MacDockerProvider extends DockerProvider {
         long timeoutMillis = TimeUnit.SECONDS.toMillis(120);
         long startTime = System.currentTimeMillis();
         int attempts = 0;
-        
+
         while (System.currentTimeMillis() - startTime < timeoutMillis) {
             attempts++;
-            
+
             try {
                 Socket socket = new Socket();
                 socket.connect(new InetSocketAddress("localhost", dockerPort), 1000);
                 socket.close();
                 log.debug("Docker daemon is listening on localhost:{} after {} attempts", dockerPort, attempts);
-                
+
                 try {
                     DockerClient testClient = DockerClient.builder()
                             .withHost("tcp://localhost:" + dockerPort)
@@ -423,12 +423,12 @@ public class MacDockerProvider extends DockerProvider {
                 }
             } catch (IOException e) {
             }
-            
+
             if (attempts % 20 == 0) {
-                log.debug("Still waiting for Docker... ({} seconds elapsed)", 
+                log.debug("Still waiting for Docker... ({} seconds elapsed)",
                         (System.currentTimeMillis() - startTime) / 1000);
             }
-            
+
             Thread.sleep(500);
         }
         
@@ -458,17 +458,17 @@ public class MacDockerProvider extends DockerProvider {
             }
             dockerClient = null;
         }
-        
+
         if (vmStartedByUs) {
             try {
                 String limactl = getLimactlPath();
-                
+
                 log.info("Stopping Lima VM {}...", vmName);
                 ProcessBuilder pb = new ProcessBuilder(limactl, "stop", vmName);
                 pb.redirectErrorStream(true);
                 Process process = pb.start();
                 process.waitFor(30, TimeUnit.SECONDS);
-                
+
                 log.info("Deleting Lima VM {}...", vmName);
                 pb = new ProcessBuilder(limactl, "delete", vmName, "--force");
                 pb.redirectErrorStream(true);

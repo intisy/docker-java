@@ -169,61 +169,97 @@ public class WindowsDockerProvider extends DockerProvider {
         log.info("Installing NVIDIA Container Toolkit in WSL2 (distro: {})...", wslDistro);
         log.info("This may take a few minutes...");
         
-        String distroId = runWslCommand("cat /etc/os-release | grep '^ID=' | cut -d= -f2 | tr -d '\"'", false, 5).trim();
-        String distroVersion = runWslCommand("cat /etc/os-release | grep '^VERSION_ID=' | cut -d= -f2 | tr -d '\"'", false, 5).trim();
-        log.debug("Detected distro: {} {}", distroId, distroVersion);
-        
-        String distribution = distroId + distroVersion;
+        if (!checkPasswordlessSudoForApt()) {
+            log.error("NVIDIA Container Toolkit installation requires passwordless sudo.");
+            log.error("Please run this ONE-TIME setup in WSL ({}):", wslDistro);
+            log.error("");
+            log.error("  wsl -d {}", wslDistro);
+            log.error("  sudo bash -c 'echo \"$USER ALL=(ALL) NOPASSWD: ALL\" > /etc/sudoers.d/nopasswd-$USER'");
+            log.error("  sudo chmod 440 /etc/sudoers.d/nopasswd-$USER");
+            log.error("  exit");
+            log.error("");
+            log.error("Or install manually:");
+            printManualInstallInstructions();
+            throw new IOException("Passwordless sudo is required. Run the setup commands above in WSL.");
+        }
         
         try {
             log.info("Adding NVIDIA GPG key...");
             String gpgKeyCmd = "curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | " +
-                    "sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg --yes";
-            String gpgResult = runWslCommandWithTimeout(gpgKeyCmd, true, 60);
+                    "sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg --yes 2>&1";
+            String gpgResult = runWslCommandWithTimeout(gpgKeyCmd, false, 60);
             log.debug("GPG key result: {}", gpgResult);
             
             log.info("Adding NVIDIA repository...");
-            String repoCmd = String.format(
-                    "curl -s -L https://nvidia.github.io/libnvidia-container/%s/libnvidia-container.list | " +
+            String repoCmd = "curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | " +
                     "sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | " +
-                    "sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null",
-                    distribution);
+                    "sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null 2>&1 && echo ok";
             String repoResult = runWslCommandWithTimeout(repoCmd, false, 60);
             log.debug("Repo add result: {}", repoResult);
             
             log.info("Updating package lists...");
-            String updateResult = runWslCommandWithTimeout("sudo apt-get update", false, 120);
+            String updateResult = runWslCommandWithTimeout("sudo apt-get update 2>&1", false, 180);
             log.debug("apt update result: {}", updateResult);
             
             log.info("Installing nvidia-container-toolkit package...");
             String installResult = runWslCommandWithTimeout(
-                    "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nvidia-container-toolkit", false, 300);
+                    "sudo apt-get install -y nvidia-container-toolkit 2>&1", false, 600);
             log.debug("Install result: {}", installResult);
             
             log.info("Configuring Docker to use NVIDIA runtime...");
-            String configResult = runWslCommandWithTimeout("sudo nvidia-ctk runtime configure --runtime=docker", false, 30);
+            String configResult = runWslCommandWithTimeout("sudo nvidia-ctk runtime configure --runtime=docker 2>&1", false, 60);
             log.debug("Config result: {}", configResult);
             
             if (isNvidiaContainerToolkitInstalled()) {
                 log.info("NVIDIA Container Toolkit installed successfully!");
             } else {
-                throw new IOException("Installation completed but toolkit not found. Please check manually.");
+                throw new IOException("Installation completed but toolkit not found. Check output above for errors.");
             }
             
         } catch (Exception e) {
             log.error("Failed to install NVIDIA Container Toolkit: {}", e.getMessage());
             log.error("");
-            log.error("You can install it manually by running these commands in WSL ({}):", wslDistro);
-            log.error("  distribution=$(. /etc/os-release;echo $ID$VERSION_ID)");
-            log.error("  curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg");
-            log.error("  curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \\");
-            log.error("    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \\");
-            log.error("    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list");
-            log.error("  sudo apt-get update");
-            log.error("  sudo apt-get install -y nvidia-container-toolkit");
-            log.error("  sudo nvidia-ctk runtime configure --runtime=docker");
+            printManualInstallInstructions();
             throw new IOException("Failed to install NVIDIA Container Toolkit: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Check if passwordless sudo is available (tests with 'sudo -n true').
+     */
+    private boolean checkPasswordlessSudoForApt() {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c",
+                    "sudo -n true 2>/dev/null && echo yes || echo no");
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            byte[] output = readAllBytes(process.getInputStream());
+            boolean completed = process.waitFor(5, TimeUnit.SECONDS);
+
+            if (!completed) {
+                log.debug("sudo check timed out");
+                return false;
+            }
+
+            String result = new String(output).trim();
+            boolean hasPasswordlessSudo = "yes".equals(result);
+            log.debug("Passwordless sudo available: {}", hasPasswordlessSudo);
+            return hasPasswordlessSudo;
+        } catch (IOException | InterruptedException e) {
+            log.debug("Failed to check passwordless sudo: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private void printManualInstallInstructions() {
+        log.error("You can install it manually by running these commands in WSL ({}):", wslDistro);
+        log.error("  curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg --yes");
+        log.error("  curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \\");
+        log.error("    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \\");
+        log.error("    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list");
+        log.error("  sudo apt-get update");
+        log.error("  sudo apt-get install -y nvidia-container-toolkit");
+        log.error("  sudo nvidia-ctk runtime configure --runtime=docker");
     }
 
     /**
