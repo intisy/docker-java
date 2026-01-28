@@ -79,6 +79,15 @@ public class HostConfig {
     @SerializedName("ShmSize")
     private Long shmSize;
 
+    @SerializedName("DeviceRequests")
+    private List<DeviceRequest> deviceRequests;
+
+    @SerializedName("Devices")
+    private List<DeviceMapping> devices;
+
+    @SerializedName("Runtime")
+    private String runtime;
+
     public HostConfig() {
     }
 
@@ -309,6 +318,49 @@ public class HostConfig {
 
     public HostConfig setShmSize(Long shmSize) {
         this.shmSize = shmSize;
+        return this;
+    }
+
+    public List<DeviceRequest> getDeviceRequests() {
+        return deviceRequests;
+    }
+
+    public HostConfig setDeviceRequests(List<DeviceRequest> deviceRequests) {
+        this.deviceRequests = deviceRequests;
+        return this;
+    }
+
+    public HostConfig addDeviceRequest(DeviceRequest deviceRequest) {
+        if (this.deviceRequests == null) {
+            this.deviceRequests = new ArrayList<>();
+        }
+        this.deviceRequests.add(deviceRequest);
+        return this;
+    }
+
+    public List<DeviceMapping> getDevices() {
+        return devices;
+    }
+
+    public HostConfig setDevices(List<DeviceMapping> devices) {
+        this.devices = devices;
+        return this;
+    }
+
+    public HostConfig addDevice(DeviceMapping device) {
+        if (this.devices == null) {
+            this.devices = new ArrayList<>();
+        }
+        this.devices.add(device);
+        return this;
+    }
+
+    public String getRuntime() {
+        return runtime;
+    }
+
+    public HostConfig setRuntime(String runtime) {
+        this.runtime = runtime;
         return this;
     }
 
