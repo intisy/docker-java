@@ -128,6 +128,167 @@ public class WindowsDockerProvider extends DockerProvider {
         }
     }
 
+    /**
+     * Check if NVIDIA Container Toolkit is installed in WSL2.
+     * @return true if installed, false otherwise
+     */
+    public boolean isNvidiaContainerToolkitInstalled() {
+        if (!usingWsl2 || wslDistro == null) {
+            return false;
+        }
+        
+        String result = runWslCommand("command -v nvidia-container-toolkit && echo installed || echo missing", false, 5);
+        return result.contains("installed");
+    }
+
+    /**
+     * Check if NVIDIA GPU is available in WSL2.
+     * @return true if NVIDIA GPU is detected, false otherwise
+     */
+    public boolean isNvidiaGpuAvailable() {
+        if (!usingWsl2 || wslDistro == null) {
+            return false;
+        }
+        
+        String result = runWslCommand("nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1", false, 10);
+        boolean available = !result.isEmpty() && !result.contains("not found") && !result.contains("error");
+        log.debug("NVIDIA GPU check result: {} (available: {})", result.trim(), available);
+        return available;
+    }
+
+    /**
+     * Install NVIDIA Container Toolkit in WSL2.
+     * This enables GPU passthrough to Docker containers.
+     * @throws IOException if installation fails
+     */
+    public void installNvidiaContainerToolkit() throws IOException {
+        if (!usingWsl2 || wslDistro == null) {
+            throw new IOException("NVIDIA Container Toolkit can only be installed in WSL2 mode");
+        }
+        
+        log.info("Installing NVIDIA Container Toolkit in WSL2 (distro: {})...", wslDistro);
+        log.info("This may take a few minutes...");
+        
+        String distroId = runWslCommand("cat /etc/os-release | grep '^ID=' | cut -d= -f2 | tr -d '\"'", false, 5).trim();
+        String distroVersion = runWslCommand("cat /etc/os-release | grep '^VERSION_ID=' | cut -d= -f2 | tr -d '\"'", false, 5).trim();
+        log.debug("Detected distro: {} {}", distroId, distroVersion);
+        
+        String distribution = distroId + distroVersion;
+        
+        try {
+            log.info("Adding NVIDIA GPG key...");
+            String gpgKeyCmd = "curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | " +
+                    "sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg --yes";
+            String gpgResult = runWslCommandWithTimeout(gpgKeyCmd, true, 60);
+            log.debug("GPG key result: {}", gpgResult);
+            
+            log.info("Adding NVIDIA repository...");
+            String repoCmd = String.format(
+                    "curl -s -L https://nvidia.github.io/libnvidia-container/%s/libnvidia-container.list | " +
+                    "sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | " +
+                    "sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null",
+                    distribution);
+            String repoResult = runWslCommandWithTimeout(repoCmd, false, 60);
+            log.debug("Repo add result: {}", repoResult);
+            
+            log.info("Updating package lists...");
+            String updateResult = runWslCommandWithTimeout("sudo apt-get update", false, 120);
+            log.debug("apt update result: {}", updateResult);
+            
+            log.info("Installing nvidia-container-toolkit package...");
+            String installResult = runWslCommandWithTimeout(
+                    "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nvidia-container-toolkit", false, 300);
+            log.debug("Install result: {}", installResult);
+            
+            log.info("Configuring Docker to use NVIDIA runtime...");
+            String configResult = runWslCommandWithTimeout("sudo nvidia-ctk runtime configure --runtime=docker", false, 30);
+            log.debug("Config result: {}", configResult);
+            
+            if (isNvidiaContainerToolkitInstalled()) {
+                log.info("NVIDIA Container Toolkit installed successfully!");
+            } else {
+                throw new IOException("Installation completed but toolkit not found. Please check manually.");
+            }
+            
+        } catch (Exception e) {
+            log.error("Failed to install NVIDIA Container Toolkit: {}", e.getMessage());
+            log.error("");
+            log.error("You can install it manually by running these commands in WSL ({}):", wslDistro);
+            log.error("  distribution=$(. /etc/os-release;echo $ID$VERSION_ID)");
+            log.error("  curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg");
+            log.error("  curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \\");
+            log.error("    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \\");
+            log.error("    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list");
+            log.error("  sudo apt-get update");
+            log.error("  sudo apt-get install -y nvidia-container-toolkit");
+            log.error("  sudo nvidia-ctk runtime configure --runtime=docker");
+            throw new IOException("Failed to install NVIDIA Container Toolkit: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Ensure NVIDIA Container Toolkit is set up for GPU support.
+     * Automatically installs if NVIDIA GPU is detected but toolkit is not installed.
+     * @throws IOException if setup fails
+     */
+    public void ensureNvidiaContainerToolkit() throws IOException {
+        if (!usingWsl2 || wslDistro == null) {
+            log.debug("Not using WSL2, skipping NVIDIA toolkit check");
+            return;
+        }
+        
+        if (!isNvidiaGpuAvailable()) {
+            log.debug("No NVIDIA GPU detected, skipping toolkit installation");
+            return;
+        }
+        
+        if (isNvidiaContainerToolkitInstalled()) {
+            log.debug("NVIDIA Container Toolkit is already installed");
+            return;
+        }
+        
+        log.info("NVIDIA GPU detected but Container Toolkit not installed. Installing automatically...");
+        installNvidiaContainerToolkit();
+    }
+    
+    /**
+     * Run a WSL command with extended timeout for long-running operations.
+     */
+    private String runWslCommandWithTimeout(String command, boolean useSudo, int timeoutSeconds) {
+        try {
+            String fullCommand = useSudo ? "sudo " + command : command;
+            ProcessBuilder pb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c", fullCommand);
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            
+            StringBuilder output = new StringBuilder();
+            Thread reader = new Thread(() -> {
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        output.append(line).append("\n");
+                    }
+                } catch (IOException e) {
+                    log.debug("Error reading process output: {}", e.getMessage());
+                }
+            });
+            reader.start();
+            
+            boolean completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+            reader.join(1000);
+            
+            if (!completed) {
+                process.destroyForcibly();
+                log.warn("WSL command timed out after {} seconds", timeoutSeconds);
+            }
+            
+            return output.toString().trim();
+        } catch (IOException | InterruptedException e) {
+            log.debug("WSL command failed: {}", e.getMessage());
+            return "";
+        }
+    }
+
     private void installDockerInWsl2() throws IOException {
         log.info("Docker is not installed in WSL2 (distro: {})", wslDistro);
         log.info("");

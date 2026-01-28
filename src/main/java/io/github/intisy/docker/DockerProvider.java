@@ -136,4 +136,41 @@ public abstract class DockerProvider {
      * Downloads and installs Docker if necessary.
      */
     public abstract void ensureInstalled() throws IOException;
+
+    /**
+     * Check if NVIDIA GPU is available on this system.
+     * @return true if an NVIDIA GPU is detected, false otherwise
+     */
+    public boolean isNvidiaGpuAvailable() {
+        return false;
+    }
+
+    /**
+     * Check if NVIDIA Container Toolkit is installed.
+     * The toolkit is required to pass GPUs to Docker containers.
+     * @return true if installed, false otherwise
+     */
+    public boolean isNvidiaContainerToolkitInstalled() {
+        return false;
+    }
+
+    /**
+     * Ensure NVIDIA Container Toolkit is installed if an NVIDIA GPU is available.
+     * This method will automatically install the toolkit if:
+     * - An NVIDIA GPU is detected
+     * - The toolkit is not already installed
+     * 
+     * @throws IOException if installation fails
+     */
+    public void ensureNvidiaContainerToolkit() throws IOException {}
+
+    /**
+     * Install NVIDIA Container Toolkit.
+     * This enables GPU passthrough to Docker containers.
+     * 
+     * @throws IOException if installation fails
+     */
+    public void installNvidiaContainerToolkit() throws IOException {
+        throw new UnsupportedOperationException("NVIDIA Container Toolkit installation not supported on this platform");
+    }
 }
