@@ -439,9 +439,20 @@ public class WindowsDockerProvider extends DockerProvider {
     }
 
     private int dockerPort;
+    private boolean usingExistingDaemon = false;
+    private static final Object EXISTING_DAEMON_LOCK = new Object();
+    private static volatile boolean existingDaemonSetup = false;
+    private static volatile int sharedDaemonPort = 0;
+    private static volatile String sharedWslIp = null;
     
     private void startWsl2Docker() throws IOException, InterruptedException {
         ensureInstalled();
+        
+        if (tryConnectToExistingDaemon()) {
+            log.info("Connected to existing Docker daemon in WSL2");
+            usingExistingDaemon = true;
+            return;
+        }
         
         dockerPort = 2375 + Math.abs(instanceId.hashCode() % 1000);
         wslSocketPath = "tcp://0.0.0.0:" + dockerPort;
@@ -492,7 +503,7 @@ public class WindowsDockerProvider extends DockerProvider {
         String isolationFlags = "";
         if (otherDockerdRunning) {
             log.info("Another Docker daemon detected, using isolation flags to avoid conflicts");
-            isolationFlags = " --iptables=false --bridge=none";
+            isolationFlags = " --iptables=false";
         }
         
         log.debug("Starting dockerd directly...");
@@ -580,6 +591,147 @@ public class WindowsDockerProvider extends DockerProvider {
         }
         
         log.info("Docker daemon started in WSL2 (instance: {}, port: {})", instanceId, dockerPort);
+    }
+    
+    /**
+     * Try to connect to an existing Docker daemon running in WSL2.
+     * This checks if Docker is running, starts it if needed, and exposes it on TCP.
+     * Uses synchronization to prevent race conditions when multiple threads call this.
+     */
+    private boolean tryConnectToExistingDaemon() {
+        synchronized (EXISTING_DAEMON_LOCK) {
+            if (existingDaemonSetup && sharedDaemonPort > 0 && sharedWslIp != null) {
+                dockerPort = sharedDaemonPort;
+                wslIpAddress = sharedWslIp;
+                log.info("Using existing Docker daemon connection on port {}", dockerPort);
+                return true;
+            }
+            
+            try {
+                String socketCheck = runWslCommand("test -S /var/run/docker.sock && echo yes || echo no", false, 5);
+                if (!"yes".equals(socketCheck.trim())) {
+                    log.debug("Docker socket /var/run/docker.sock does not exist");
+                    
+                    log.info("Docker daemon not running, attempting to start it...");
+                    String startResult = runWslCommand("sudo service docker start 2>&1", false, 30);
+                    log.debug("Docker service start result: {}", startResult);
+                    
+                    Thread.sleep(3000);
+                    
+                    socketCheck = runWslCommand("test -S /var/run/docker.sock && echo yes || echo no", false, 5);
+                    if (!"yes".equals(socketCheck.trim())) {
+                        log.debug("Docker socket still doesn't exist after service start");
+                        return false;
+                    }
+                }
+                
+                log.info("Found Docker daemon in WSL2, setting up TCP forwarding...");
+                
+                String wslIp = runWslCommand("hostname -I | awk '{print $1}'", false, 5).trim();
+                if (wslIp.isEmpty()) {
+                    log.info("Could not get WSL2 IP address, will use isolated daemon");
+                    return false;
+                }
+                wslIpAddress = wslIp;
+                log.info("WSL2 IP: {}", wslIp);
+                
+                String socatPath = runWslCommand("command -v socat 2>/dev/null || echo ''", false, 5).trim();
+                if (socatPath.isEmpty()) {
+                    log.info("Installing socat for TCP forwarding...");
+                    runWslCommand("sudo apt-get update -qq && sudo apt-get install -y -qq socat 2>&1", false, 120);
+                    socatPath = runWslCommand("command -v socat 2>/dev/null || echo ''", false, 5).trim();
+                    if (socatPath.isEmpty()) {
+                        log.info("Failed to install socat, will use isolated daemon");
+                        return false;
+                    }
+                }
+                
+                dockerPort = 2375;
+                
+                runWslCommand("sudo pkill -9 -f 'socat.*:" + dockerPort + "' 2>/dev/null; sleep 1", false, 10);
+                
+                String socketPerms = runWslCommand("ls -la /var/run/docker.sock 2>&1", false, 5);
+                log.info("Docker socket: {}", socketPerms.trim());
+                
+                String socatCmd = String.format(
+                    "sudo nohup socat TCP-LISTEN:%d,bind=0.0.0.0,reuseaddr,fork UNIX-CONNECT:/var/run/docker.sock </dev/null >/tmp/socat-%d.log 2>&1 &",
+                    dockerPort, dockerPort);
+                runWslCommand(socatCmd, false, 5);
+                
+                Thread.sleep(2000);
+                
+                String socatPid = runWslCommand("pgrep -f 'socat.*:" + dockerPort + "' 2>/dev/null | head -1 || echo ''", false, 5).trim();
+                if (socatPid.isEmpty()) {
+                    String socatLog = runWslCommand("cat /tmp/socat-" + dockerPort + ".log 2>/dev/null | head -20 || echo '(no log)'", false, 5);
+                    log.info("socat failed to start. Log: {}", socatLog);
+                    return false;
+                }
+                log.info("socat running with PID: {}", socatPid);
+                
+                String listenCheck = runWslCommand("ss -tlnp 2>/dev/null | grep ':" + dockerPort + " ' || echo 'not listening'", false, 5);
+                log.info("Port {} status: {}", dockerPort, listenCheck.trim());
+                
+                boolean connected = testDockerConnection(wslIp, dockerPort);
+                if (!connected) {
+                    connected = testDockerConnection("localhost", dockerPort);
+                    if (connected) {
+                        wslIpAddress = "localhost";
+                    }
+                }
+                
+                if (connected) {
+                    sharedDaemonPort = dockerPort;
+                    sharedWslIp = wslIpAddress;
+                    existingDaemonSetup = true;
+                    log.info("Connected to Docker daemon via TCP at {}:{}", wslIpAddress, dockerPort);
+                    return true;
+                }
+                
+                String socatLog = runWslCommand("cat /tmp/socat-" + dockerPort + ".log 2>/dev/null | tail -10 || echo '(no log)'", false, 5);
+                log.info("Connection failed, socat log: {}", socatLog);
+                return false;
+            } catch (Exception e) {
+                log.info("Failed to connect to existing daemon: {}", e.getMessage());
+                return false;
+            }
+        }
+    }
+    
+    /**
+     * Test Docker connection from Windows by attempting a TCP socket connection and HTTP request.
+     */
+    private boolean testDockerConnection(String host, int port) {
+        try {
+            log.info("Testing Docker connection to {}:{}...", host, port);
+            
+            java.net.Socket socket = new java.net.Socket();
+            socket.connect(new java.net.InetSocketAddress(host, port), 3000);
+            socket.close();
+            log.info("TCP socket connection successful to {}:{}", host, port);
+            
+            java.net.URL url = new java.net.URL("http://" + host + ":" + port + "/version");
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(3000);
+            int responseCode = conn.getResponseCode();
+            conn.disconnect();
+            
+            if (responseCode == 200) {
+                log.info("Docker API responding at {}:{}", host, port);
+                return true;
+            }
+            log.info("Docker API returned HTTP {} at {}:{}", responseCode, host, port);
+            return false;
+        } catch (java.net.ConnectException e) {
+            log.info("Connection refused to {}:{} - socat may not be forwarding correctly", host, port);
+            return false;
+        } catch (java.net.SocketTimeoutException e) {
+            log.info("Connection timeout to {}:{}", host, port);
+            return false;
+        } catch (IOException e) {
+            log.info("Connection test failed for {}:{} - {}: {}", host, port, e.getClass().getSimpleName(), e.getMessage());
+            return false;
+        }
     }
     
     /**
@@ -770,6 +922,18 @@ public class WindowsDockerProvider extends DockerProvider {
     @Override
     public void stop() {
         log.info("Stopping Docker daemon (instance: {})...", instanceId);
+        
+        if (usingExistingDaemon && usingWsl2 && wslDistro != null) {
+            try {
+                ProcessBuilder pb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c",
+                        "sudo -n pkill -f 'socat.*:" + dockerPort + "' 2>/dev/null || true");
+                pb.start().waitFor(5, TimeUnit.SECONDS);
+                log.info("Stopped socat TCP forwarder");
+            } catch (IOException | InterruptedException e) {
+                log.debug("Failed to stop socat: {}", e.getMessage());
+            }
+            return;
+        }
         
         if (dockerProcess != null) {
             if (usingWsl2 && wslDistro != null) {

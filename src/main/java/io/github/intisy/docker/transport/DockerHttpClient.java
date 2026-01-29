@@ -68,6 +68,9 @@ public class DockerHttpClient implements Closeable {
     public DockerResponse post(String path, Map<String, String> queryParams, Object body) throws IOException {
         String fullPath = buildPathWithQuery(path, queryParams);
         String jsonBody = body != null ? gson.toJson(body) : null;
+        if (jsonBody != null && path.contains("/containers/create")) {
+            log.info("Creating container with JSON: {}", jsonBody);
+        }
         return request("POST", fullPath, jsonBody);
     }
 

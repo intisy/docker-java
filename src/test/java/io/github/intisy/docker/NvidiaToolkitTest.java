@@ -36,7 +36,6 @@ public class NvidiaToolkitTest {
         log.info("=== NVIDIA Container Toolkit Test Setup ===");
         provider = new WindowsDockerProvider();
 
-        // Try to start the provider to initialize WSL2
         try {
             provider.start();
             hasWsl2 = true;
@@ -66,7 +65,6 @@ public class NvidiaToolkitTest {
         log.info("OS: {}", System.getProperty("os.name"));
         log.info("Is Windows: {}", isWindows);
 
-        // This test just logs info, doesn't fail
         assertTrue(true);
     }
 
@@ -100,7 +98,6 @@ public class NvidiaToolkitTest {
             log.info("No NVIDIA GPU detected. This is expected if you don't have an NVIDIA GPU.");
         }
 
-        // Test passes regardless - we're just checking detection works
         assertTrue(true);
     }
 
@@ -121,7 +118,6 @@ public class NvidiaToolkitTest {
             log.info("It will be installed automatically when ensureNvidiaContainerToolkit() is called.");
         }
 
-        // Test passes regardless - we're just checking detection works
         assertTrue(true);
     }
 
@@ -142,7 +138,6 @@ public class NvidiaToolkitTest {
         if (!gpuAvailable) {
             log.info("No NVIDIA GPU detected. ensureNvidiaContainerToolkit() will do nothing.");
 
-            // Should not throw, just return silently
             assertDoesNotThrow(() -> provider.ensureNvidiaContainerToolkit());
             log.info("ensureNvidiaContainerToolkit() completed (no-op, no GPU)");
             return;
@@ -151,13 +146,11 @@ public class NvidiaToolkitTest {
         if (toolkitInstalledBefore) {
             log.info("Toolkit already installed. ensureNvidiaContainerToolkit() will do nothing.");
 
-            // Should not throw, just return silently
             assertDoesNotThrow(() -> provider.ensureNvidiaContainerToolkit());
             log.info("ensureNvidiaContainerToolkit() completed (no-op, already installed)");
             return;
         }
 
-        // GPU available but toolkit not installed - will attempt installation
         log.info("GPU available but toolkit not installed. Will attempt automatic installation...");
         log.info("This may take a few minutes...");
 
@@ -174,7 +167,6 @@ public class NvidiaToolkitTest {
         } catch (IOException e) {
             String message = e.getMessage();
 
-            // If it's a prerequisite issue (passwordless sudo not set up), skip the test with instructions
             if (message != null && message.contains("Passwordless sudo")) {
                 log.warn("=== ONE-TIME SETUP REQUIRED ===");
                 log.warn("Run these commands in WSL to enable automatic NVIDIA toolkit installation:");
@@ -187,11 +179,9 @@ public class NvidiaToolkitTest {
                 log.warn("Then run this test again.");
                 log.warn("================================");
 
-                // Skip the test instead of failing - prerequisite not met
                 assumeTrue(false, "Skipping: Passwordless sudo not configured. See instructions above.");
             }
 
-            // For other errors, fail the test
             log.error("Failed to install NVIDIA Container Toolkit: {}", message);
             log.error("This might be due to network issues.");
             log.error("You can install manually by running the commands shown in the error message.");
@@ -212,7 +202,6 @@ public class NvidiaToolkitTest {
 
         DockerClient client = provider.getClient();
 
-        // Try to pull and run nvidia-smi in a container
         try {
             log.info("Pulling nvidia/cuda:12.0.0-base-ubuntu22.04 image...");
             client.pullImage("nvidia/cuda:12.0.0-base-ubuntu22.04").exec(10, java.util.concurrent.TimeUnit.MINUTES);
@@ -228,14 +217,11 @@ public class NvidiaToolkitTest {
             String containerId = response.getId();
             log.info("Container created: {}", containerId);
 
-            // Start the container
             client.startContainer(containerId).exec();
             log.info("Container started");
 
-            // Wait for it to finish
             client.waitContainer(containerId).exec();
 
-            // Get logs
             String logs = client.logs(containerId)
                     .withStdout(true)
                     .withStderr(true)
@@ -243,11 +229,9 @@ public class NvidiaToolkitTest {
 
             log.info("Container output:\n{}", logs);
 
-            // Cleanup
             client.removeContainer(containerId).exec();
             log.info("Container removed");
 
-            // Check if nvidia-smi output looks valid
             assertTrue(logs.contains("NVIDIA") || logs.contains("GPU"),
                     "nvidia-smi output should contain GPU information");
 

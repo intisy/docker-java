@@ -24,7 +24,6 @@ public class WslDiagnosticTest {
         log.info("=== WSL2 Diagnostic Test ===");
         log.info("OS: {}", System.getProperty("os.name"));
         
-        // Test 1: Check if wsl command exists
         log.info("\n--- Test 1: WSL command availability ---");
         try {
             ProcessBuilder pb = new ProcessBuilder("wsl", "--version");
@@ -33,7 +32,6 @@ public class WslDiagnosticTest {
             byte[] output = readAllBytes(process.getInputStream());
             int exitCode = process.waitFor();
             
-            // Try different encodings
             String utf8 = new String(output, StandardCharsets.UTF_8);
             String utf16le = new String(output, StandardCharsets.UTF_16LE);
             
@@ -44,7 +42,6 @@ public class WslDiagnosticTest {
             log.error("wsl --version failed: {}", e.getMessage());
         }
 
-        // Test 2: List WSL distributions
         log.info("\n--- Test 2: WSL distributions ---");
         try {
             ProcessBuilder pb = new ProcessBuilder("wsl", "-l", "-v");
@@ -53,7 +50,6 @@ public class WslDiagnosticTest {
             byte[] output = readAllBytes(process.getInputStream());
             int exitCode = process.waitFor();
             
-            // WSL output is usually UTF-16LE on Windows
             String utf16le = new String(output, StandardCharsets.UTF_16LE);
             String utf8 = new String(output, StandardCharsets.UTF_8);
             
@@ -61,14 +57,12 @@ public class WslDiagnosticTest {
             log.info("Output (UTF-16LE):\n{}", utf16le);
             log.info("Output (UTF-8):\n{}", utf8);
             
-            // Check for version 2 indicators
             boolean hasVersion2 = utf16le.contains("2") || utf8.contains("2");
             log.info("Contains '2': {}", hasVersion2);
         } catch (Exception e) {
             log.error("wsl -l -v failed: {}", e.getMessage());
         }
 
-        // Test 3: Try to execute a command in WSL
         log.info("\n--- Test 3: Execute command in WSL ---");
         try {
             ProcessBuilder pb = new ProcessBuilder("wsl", "-e", "echo", "hello from wsl");
@@ -83,7 +77,6 @@ public class WslDiagnosticTest {
             log.error("wsl -e echo failed: {}", e.getMessage());
         }
 
-        // Test 4: Check for dockerd in WSL (use specific distro)
         log.info("\n--- Test 4: Check for dockerd in WSL ---");
         try {
             ProcessBuilder pb = new ProcessBuilder("wsl", "-d", "Ubuntu", "-e", "bash", "-c", "command -v dockerd || echo 'not found'");
@@ -98,7 +91,6 @@ public class WslDiagnosticTest {
             log.error("dockerd check failed: {}", e.getMessage());
         }
         
-        // Test 4b: Check docker group membership
         log.info("\n--- Test 4b: Check docker group membership ---");
         try {
             ProcessBuilder pb = new ProcessBuilder("wsl", "-d", "Ubuntu", "-e", "bash", "-c", "groups && id");
@@ -113,7 +105,6 @@ public class WslDiagnosticTest {
             log.error("groups check failed: {}", e.getMessage());
         }
         
-        // Test 4c: Try to start dockerd manually
         log.info("\n--- Test 4c: Try starting dockerd (will show errors) ---");
         try {
             ProcessBuilder pb = new ProcessBuilder("wsl", "-d", "Ubuntu", "--", "bash", "-c", 
@@ -129,7 +120,6 @@ public class WslDiagnosticTest {
             log.error("dockerd test failed: {}", e.getMessage());
         }
 
-        // Test 5: Check WSL default distribution
         log.info("\n--- Test 5: Default WSL distribution ---");
         try {
             ProcessBuilder pb = new ProcessBuilder("wsl", "-e", "cat", "/etc/os-release");
@@ -160,7 +150,6 @@ public class WslDiagnosticTest {
         WindowsDockerProvider provider = new WindowsDockerProvider();
         log.info("Instance ID: {}", provider.getInstanceId());
         
-        // The provider will log debug info when checking WSL
         log.info("Note: Check debug logs above for WSL2 detection details");
     }
 }
