@@ -903,6 +903,16 @@ public class WindowsDockerProvider extends DockerProvider {
     private String wslIpAddress;
     
     @Override
+    public String getDockerHost() {
+        if (usingWsl2) {
+            String host = wslIpAddress != null ? wslIpAddress : "localhost";
+            return "tcp://" + host + ":" + dockerPort;
+        } else {
+            return "npipe://" + dockerPipePath.toString().replace("\\", "/");
+        }
+    }
+
+    @Override
     public DockerClient getClient() {
         if (this.dockerClient == null) {
             if (usingWsl2) {

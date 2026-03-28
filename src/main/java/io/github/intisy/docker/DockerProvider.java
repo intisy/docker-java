@@ -138,6 +138,24 @@ public abstract class DockerProvider {
     public abstract void ensureInstalled() throws IOException;
 
     /**
+     * Get the Docker host URL for connecting to this provider's Docker daemon.
+     * This can be used as the {@code DOCKER_HOST} environment variable or passed
+     * to other tools that need to connect to this Docker instance.
+     * <p>
+     * Returns values like:
+     * <ul>
+     *   <li>{@code unix:///path/to/docker.sock} (Linux)</li>
+     *   <li>{@code npipe:////./pipe/docker_java_abc123} (Windows native)</li>
+     *   <li>{@code tcp://localhost:2375} (macOS Lima, Windows WSL2)</li>
+     * </ul>
+     * <p>
+     * Must be called after {@link #start()}.
+     *
+     * @return The Docker host URL string
+     */
+    public abstract String getDockerHost();
+
+    /**
      * Check if NVIDIA GPU is available on this system.
      * @return true if an NVIDIA GPU is detected, false otherwise
      */
