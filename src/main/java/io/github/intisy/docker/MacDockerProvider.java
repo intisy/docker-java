@@ -437,6 +437,11 @@ public class MacDockerProvider extends DockerProvider {
     }
 
     @Override
+    public String getDockerHost() {
+        return "tcp://localhost:" + dockerPort;
+    }
+
+    @Override
     public DockerClient getClient() {
         if (this.dockerClient == null) {
             this.dockerClient = DockerClient.builder()

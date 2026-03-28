@@ -227,6 +227,11 @@ public class LinuxDockerProvider extends DockerProvider {
     }
 
     @Override
+    public String getDockerHost() {
+        return "unix://" + dockerSocketPath.toString();
+    }
+
+    @Override
     public DockerClient getClient() {
         if (this.dockerClient == null) {
             String socketPath = dockerSocketPath.toString();
