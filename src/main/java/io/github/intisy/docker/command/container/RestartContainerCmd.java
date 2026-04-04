@@ -24,6 +24,9 @@ public class RestartContainerCmd {
 
     /**
      * Set timeout in seconds before killing the container.
+      *
+      * @param timeout seconds to wait before killing
+      * @return this command instance
      */
     public RestartContainerCmd withTimeout(int timeout) {
         this.timeout = timeout;

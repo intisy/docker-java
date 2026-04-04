@@ -35,6 +35,9 @@ public class TagImageCmd {
 
     /**
      * Set repository and tag from a combined name:tag format.
+      *
+      * @param imageNameTag the combined name:tag string
+      * @return this command instance
      */
     public TagImageCmd withImageNameTag(String imageNameTag) {
         if (imageNameTag.contains(":")) {

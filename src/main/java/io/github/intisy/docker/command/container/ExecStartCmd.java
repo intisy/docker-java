@@ -58,6 +58,8 @@ public class ExecStartCmd {
 
     /**
      * Execute the command and stream output.
+      *
+      * @param callback the callback for streaming output
      */
     public void exec(StreamCallback<String> callback) {
         try {

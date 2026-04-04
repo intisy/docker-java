@@ -25,6 +25,9 @@ public class StopContainerCmd {
 
     /**
      * Set timeout in seconds before killing the container.
+      *
+      * @param timeout seconds to wait before killing
+      * @return this command instance
      */
     public StopContainerCmd withTimeout(int timeout) {
         this.timeout = timeout;

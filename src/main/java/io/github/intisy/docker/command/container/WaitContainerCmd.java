@@ -23,6 +23,9 @@ public class WaitContainerCmd {
 
     /**
      * Wait condition: 'not-running' (default), 'next-exit', or 'removed'.
+      *
+      * @param condition the wait condition
+      * @return this command instance
      */
     public WaitContainerCmd withCondition(String condition) {
         this.condition = condition;

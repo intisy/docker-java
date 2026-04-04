@@ -31,6 +31,9 @@ public class LogsContainerCmd {
 
     /**
      * Follow log output (streaming).
+      *
+      * @param follow true to follow log output
+      * @return this command instance
      */
     public LogsContainerCmd withFollow(boolean follow) {
         this.follow = follow;
@@ -49,6 +52,9 @@ public class LogsContainerCmd {
 
     /**
      * Show logs since timestamp (Unix timestamp or RFC3339).
+      *
+      * @param since the start timestamp
+      * @return this command instance
      */
     public LogsContainerCmd withSince(String since) {
         this.since = since;
@@ -57,6 +63,9 @@ public class LogsContainerCmd {
 
     /**
      * Show logs until timestamp (Unix timestamp or RFC3339).
+      *
+      * @param until the end timestamp
+      * @return this command instance
      */
     public LogsContainerCmd withUntil(String until) {
         this.until = until;
@@ -70,6 +79,9 @@ public class LogsContainerCmd {
 
     /**
      * Only return the last N lines.
+      *
+      * @param tail the number of lines to return
+      * @return this command instance
      */
     public LogsContainerCmd withTail(int tail) {
         this.tail = tail;
@@ -78,6 +90,8 @@ public class LogsContainerCmd {
 
     /**
      * Execute the command and return logs as a string.
+      *
+      * @return the log output as a string
      */
     public String exec() {
         try {
@@ -101,6 +115,8 @@ public class LogsContainerCmd {
 
     /**
      * Execute the command with streaming callback.
+      *
+      * @param callback the callback for streaming log lines
      */
     public void exec(StreamCallback<String> callback) {
         try {

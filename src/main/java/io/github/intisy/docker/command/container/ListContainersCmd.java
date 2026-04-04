@@ -28,6 +28,9 @@ public class ListContainersCmd {
 
     /**
      * Show all containers (default shows just running).
+      *
+      * @param showAll true to show all containers, false for running only
+      * @return this command instance
      */
     public ListContainersCmd withShowAll(boolean showAll) {
         this.showAll = showAll;
@@ -54,6 +57,9 @@ public class ListContainersCmd {
 
     /**
      * Filter by status (created, restarting, running, removing, paused, exited, dead).
+      *
+      * @param status the status to filter by
+      * @return this command instance
      */
     public ListContainersCmd withStatusFilter(String status) {
         return withFilter("status", status);

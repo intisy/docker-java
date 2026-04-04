@@ -45,6 +45,9 @@ public class PullImageCmd {
 
     /**
      * Set the platform (e.g., linux/amd64).
+      *
+      * @param platform the target platform
+      * @return this command instance
      */
     public PullImageCmd withPlatform(String platform) {
         this.platform = platform;
@@ -53,6 +56,9 @@ public class PullImageCmd {
 
     /**
      * Set the authentication header (base64 encoded JSON).
+      *
+      * @param authHeader the authentication header
+      * @return this command instance
      */
     public PullImageCmd withAuthHeader(String authHeader) {
         this.authHeader = authHeader;
@@ -73,6 +79,10 @@ public class PullImageCmd {
 
     /**
      * Execute the command with timeout.
+      *
+      * @param timeout the maximum time to wait
+      * @param unit the time unit of the timeout
+      * @return true if the pull completed within the timeout
      */
     public boolean exec(long timeout, TimeUnit unit) {
         CountDownLatch latch = new CountDownLatch(1);
@@ -112,6 +122,8 @@ public class PullImageCmd {
 
     /**
      * Execute the command with a callback for progress updates.
+      *
+      * @param callback the callback for progress updates
      */
     public void exec(StreamCallback<PullResponse> callback) {
         try {

@@ -31,6 +31,9 @@ public class InspectNetworkCmd {
 
     /**
      * Filter by scope (swarm, global, or local).
+      *
+      * @param scope the scope to filter by
+      * @return this command instance
      */
     public InspectNetworkCmd withScope(String scope) {
         this.scope = scope;

@@ -27,6 +27,9 @@ public class ListImagesCmd {
 
     /**
      * Show all images (default hides intermediate images).
+      *
+      * @param showAll true to show all images including intermediate
+      * @return this command instance
      */
     public ListImagesCmd withShowAll(boolean showAll) {
         this.showAll = showAll;
@@ -56,6 +59,9 @@ public class ListImagesCmd {
 
     /**
      * Filter by reference (name[:tag]).
+      *
+      * @param reference the image reference to filter by
+      * @return this command instance
      */
     public ListImagesCmd withReferenceFilter(String reference) {
         return withFilter("reference", reference);

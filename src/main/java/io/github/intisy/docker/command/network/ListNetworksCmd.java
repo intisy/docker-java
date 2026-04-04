@@ -49,6 +49,9 @@ public class ListNetworksCmd {
 
     /**
      * Filter by scope (swarm, global, or local).
+      *
+      * @param scope the scope to filter by
+      * @return this command instance
      */
     public ListNetworksCmd withScopeFilter(String scope) {
         return withFilter("scope", scope);
@@ -56,6 +59,9 @@ public class ListNetworksCmd {
 
     /**
      * Filter by type (custom or builtin).
+      *
+      * @param type the type to filter by
+      * @return this command instance
      */
     public ListNetworksCmd withTypeFilter(String type) {
         return withFilter("type", type);

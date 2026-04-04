@@ -24,6 +24,9 @@ public class KillContainerCmd {
 
     /**
      * Set the signal to send (default: SIGKILL).
+      *
+      * @param signal the signal to send (e.g. SIGTERM)
+      * @return this command instance
      */
     public KillContainerCmd withSignal(String signal) {
         this.signal = signal;

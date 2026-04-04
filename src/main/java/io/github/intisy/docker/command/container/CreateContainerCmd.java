@@ -136,6 +136,11 @@ public class CreateContainerCmd {
 
     /**
      * Add a bind mount with read-only option.
+      *
+      * @param hostPath the host path to mount
+      * @param containerPath the container path to mount to
+      * @param readOnly whether the mount should be read-only
+      * @return this command instance
      */
     public CreateContainerCmd withBind(String hostPath, String containerPath, boolean readOnly) {
         if (config.getHostConfig() == null) {
@@ -191,6 +196,9 @@ public class CreateContainerCmd {
 
     /**
      * Set memory limit in bytes.
+      *
+      * @param memory the memory limit in bytes
+      * @return this command instance
      */
     public CreateContainerCmd withMemory(long memory) {
         if (config.getHostConfig() == null) {

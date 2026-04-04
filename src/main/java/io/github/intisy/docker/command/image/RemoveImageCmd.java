@@ -34,6 +34,9 @@ public class RemoveImageCmd {
 
     /**
      * Do not delete untagged parent images.
+      *
+      * @param noPrune true to keep untagged parent images
+      * @return this command instance
      */
     public RemoveImageCmd withNoPrune(boolean noPrune) {
         this.noPrune = noPrune;

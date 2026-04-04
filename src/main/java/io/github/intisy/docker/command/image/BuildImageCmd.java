@@ -89,6 +89,9 @@ public class BuildImageCmd {
 
     /**
      * Set total memory (memory + swap).
+      *
+      * @param memswap the total memory limit in bytes
+      * @return this command instance
      */
     public BuildImageCmd withMemswap(long memswap) {
         this.memswap = memswap;
@@ -107,6 +110,9 @@ public class BuildImageCmd {
 
     /**
      * Set the platform (e.g., linux/amd64).
+      *
+      * @param platform the target platform
+      * @return this command instance
      */
     public BuildImageCmd withPlatform(String platform) {
         this.platform = platform;
@@ -168,6 +174,8 @@ public class BuildImageCmd {
      * Execute the build command with a callback for streaming output.
      * Note: This requires sending a tar archive as the request body.
      * This simplified version just sets up the parameters.
+      *
+      * @param callback the callback for streaming build output
      */
     public void exec(StreamCallback<BuildResponse> callback) {
         try {

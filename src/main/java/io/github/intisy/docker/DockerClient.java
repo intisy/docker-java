@@ -21,6 +21,21 @@ import java.io.IOException;
  *     .withHost("unix:///var/run/docker.sock")
  *     .build();
  *
+ * // List containers
+ * List<Container> containers = client.listContainers().withShowAll(true).exec();
+ *
+ * // Pull and run a container
+ * client.pullImage("nginx:alpine").exec(5, TimeUnit.MINUTES);
+ * CreateContainerResponse response = client.createContainer("nginx:alpine")
+ *     .withName("my-nginx")
+ *     .exec();
+ * client.startContainer(response.getId()).exec();
+ *
+ * // Clean up
+ * client.stopContainer(response.getId()).exec();
+ * client.removeContainer(response.getId()).exec();
+ * }</pre>
+ *
  * @author Finn Birich
  */
 public class DockerClient implements Closeable {
