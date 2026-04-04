@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -30,7 +30,12 @@ jobs:
 
       - name: Merge Development into Main
         run: |
-          git merge --no-ff development -m "Automated merge from development to main"
+          if ! git merge --no-ff development -m "Automated merge from development to main"; then
+            echo "Merge conflict detected, auto-resolving README.md..."
+            git checkout main -- README.md 2>/dev/null || git rm README.md 2>/dev/null || true
+            git add -A
+            git commit --no-edit
+          fi
 
       - name: Push Changes
         run: git push origin main
