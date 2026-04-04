@@ -2,6 +2,7 @@ package io.github.intisy.docker;
 
 import io.github.intisy.docker.model.*;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Tag;
 
 import java.util.Arrays;
 
@@ -12,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @author Finn Birich
  */
+@Tag("unit")
 public class ModelTest {
 
     @Test

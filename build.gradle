@@ -31,6 +31,22 @@ test {
     onlyIf { gradle.startParameter.taskNames.any { it == 'test' || it == ':test' } }
 }
 
+task ciTest(type: Test) {
+    useJUnitPlatform {
+        includeTags 'unit'
+    }
+    description = 'Runs unit tests safe for CI (no Docker daemon required).'
+    group = 'verification'
+}
+
+task integrationTest(type: Test) {
+    useJUnitPlatform {
+        includeTags 'integration'
+    }
+    description = 'Runs integration tests that require a Docker daemon (local only).'
+    group = 'verification'
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8

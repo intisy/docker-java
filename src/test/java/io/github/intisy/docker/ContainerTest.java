@@ -7,6 +7,7 @@ import io.github.intisy.docker.exception.NotFoundException;
 import io.github.intisy.docker.model.*;
 import io.github.intisy.docker.transport.StreamCallback;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @author Finn Birich
  */
+@Tag("integration")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class ContainerTest {
     private static final Logger log = LoggerFactory.getLogger(ContainerTest.class);
