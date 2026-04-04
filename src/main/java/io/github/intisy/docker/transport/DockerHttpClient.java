@@ -15,8 +15,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
- * HTTP client for communicating with Docker daemon over Unix sockets or named pipes.
- *
  * @author Finn Birich
  */
 public class DockerHttpClient implements Closeable {

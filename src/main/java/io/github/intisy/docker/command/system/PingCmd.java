@@ -7,8 +7,6 @@ import io.github.intisy.docker.transport.DockerResponse;
 import java.io.IOException;
 
 /**
- * Command to ping the Docker daemon.
- *
  * @author Finn Birich
  */
 public class PingCmd {

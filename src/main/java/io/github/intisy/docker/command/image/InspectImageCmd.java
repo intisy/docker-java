@@ -9,8 +9,6 @@ import io.github.intisy.docker.transport.DockerResponse;
 import java.io.IOException;
 
 /**
- * Command to inspect an image.
- *
  * @author Finn Birich
  */
 public class InspectImageCmd {
@@ -22,9 +20,6 @@ public class InspectImageCmd {
         this.imageId = imageId;
     }
 
-    /**
-     * Execute the command.
-     */
     public ImageInspect exec() {
         try {
             DockerResponse response = client.get("/images/" + imageId + "/json");

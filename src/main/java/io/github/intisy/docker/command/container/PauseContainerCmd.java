@@ -8,8 +8,6 @@ import io.github.intisy.docker.transport.DockerResponse;
 import java.io.IOException;
 
 /**
- * Command to pause a container.
- *
  * @author Finn Birich
  */
 public class PauseContainerCmd {
@@ -21,9 +19,6 @@ public class PauseContainerCmd {
         this.containerId = containerId;
     }
 
-    /**
-     * Execute the command.
-     */
     public void exec() {
         try {
             DockerResponse response = client.post("/containers/" + containerId + "/pause");

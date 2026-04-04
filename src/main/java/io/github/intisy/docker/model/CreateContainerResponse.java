@@ -5,8 +5,6 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * Response from creating a container.
- *
  * @author Finn Birich
  */
 public class CreateContainerResponse {

@@ -9,8 +9,6 @@ import io.github.intisy.docker.transport.DockerResponse;
 import java.io.IOException;
 
 /**
- * Command to inspect a volume.
- *
  * @author Finn Birich
  */
 public class InspectVolumeCmd {
@@ -22,9 +20,6 @@ public class InspectVolumeCmd {
         this.volumeName = volumeName;
     }
 
-    /**
-     * Execute the command.
-     */
     public Volume exec() {
         try {
             DockerResponse response = client.get("/volumes/" + volumeName);

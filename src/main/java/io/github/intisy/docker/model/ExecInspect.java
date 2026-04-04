@@ -3,8 +3,6 @@ package io.github.intisy.docker.model;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * Exec instance inspection result.
- *
  * @author Finn Birich
  */
 public class ExecInspect {
@@ -71,9 +69,6 @@ public class ExecInspect {
         return pid;
     }
 
-    /**
-     * Process configuration.
-     */
     public static class ProcessConfig {
         @SerializedName("privileged")
         private Boolean privileged;

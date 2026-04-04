@@ -11,8 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to start an exec instance.
- *
  * @author Finn Birich
  */
 public class ExecStartCmd {
@@ -26,17 +24,11 @@ public class ExecStartCmd {
         this.execId = execId;
     }
 
-    /**
-     * Detach from the exec command.
-     */
     public ExecStartCmd withDetach(boolean detach) {
         this.detach = detach;
         return this;
     }
 
-    /**
-     * Allocate a pseudo-TTY.
-     */
     public ExecStartCmd withTty(boolean tty) {
         this.tty = tty;
         return this;

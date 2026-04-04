@@ -9,8 +9,6 @@ import io.github.intisy.docker.transport.DockerResponse;
 import java.io.IOException;
 
 /**
- * Command to inspect an exec instance.
- *
  * @author Finn Birich
  */
 public class ExecInspectCmd {
@@ -22,9 +20,6 @@ public class ExecInspectCmd {
         this.execId = execId;
     }
 
-    /**
-     * Execute the command.
-     */
     public ExecInspect exec() {
         try {
             DockerResponse response = client.get("/exec/" + execId + "/json");

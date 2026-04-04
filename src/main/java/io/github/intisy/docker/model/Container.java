@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Represents a Docker container.
- *
  * @author Finn Birich
  */
 public class Container {
@@ -116,9 +114,6 @@ public class Container {
         return mounts;
     }
 
-    /**
-     * Port information for a container.
-     */
     public static class Port {
         @SerializedName("IP")
         private String ip;
@@ -149,9 +144,6 @@ public class Container {
         }
     }
 
-    /**
-     * Host config summary for container listing.
-     */
     public static class ContainerHostConfig {
         @SerializedName("NetworkMode")
         private String networkMode;
@@ -161,9 +153,6 @@ public class Container {
         }
     }
 
-    /**
-     * Network settings for container listing.
-     */
     public static class ContainerNetworkSettings {
         @SerializedName("Networks")
         private Map<String, NetworkInfo> networks;
@@ -173,9 +162,6 @@ public class Container {
         }
     }
 
-    /**
-     * Network info.
-     */
     public static class NetworkInfo {
         @SerializedName("IPAMConfig")
         private Object ipamConfig;
@@ -229,9 +215,6 @@ public class Container {
         }
     }
 
-    /**
-     * Mount point for a container.
-     */
     public static class MountPoint {
         @SerializedName("Type")
         private String type;

@@ -3,8 +3,6 @@ package io.github.intisy.docker.model;
 import java.util.Objects;
 
 /**
- * Represents an exposed port in a container.
- *
  * @author Finn Birich
  */
 public class ExposedPort {

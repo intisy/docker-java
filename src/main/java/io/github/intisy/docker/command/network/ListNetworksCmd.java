@@ -13,8 +13,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Command to list networks.
- *
  * @author Finn Birich
  */
 public class ListNetworksCmd {
@@ -25,9 +23,6 @@ public class ListNetworksCmd {
         this.client = client;
     }
 
-    /**
-     * Add a filter.
-     */
     public ListNetworksCmd withFilter(String key, String... values) {
         if (this.filters == null) {
             this.filters = new HashMap<>();
@@ -36,30 +31,18 @@ public class ListNetworksCmd {
         return this;
     }
 
-    /**
-     * Filter by driver.
-     */
     public ListNetworksCmd withDriverFilter(String driver) {
         return withFilter("driver", driver);
     }
 
-    /**
-     * Filter by ID.
-     */
     public ListNetworksCmd withIdFilter(String id) {
         return withFilter("id", id);
     }
 
-    /**
-     * Filter by label.
-     */
     public ListNetworksCmd withLabelFilter(String label) {
         return withFilter("label", label);
     }
 
-    /**
-     * Filter by name.
-     */
     public ListNetworksCmd withNameFilter(String name) {
         return withFilter("name", name);
     }
@@ -78,9 +61,6 @@ public class ListNetworksCmd {
         return withFilter("type", type);
     }
 
-    /**
-     * Execute the command.
-     */
     public List<Network> exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

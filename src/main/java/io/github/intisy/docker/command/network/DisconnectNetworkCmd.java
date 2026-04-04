@@ -9,8 +9,6 @@ import io.github.intisy.docker.transport.DockerResponse;
 import java.io.IOException;
 
 /**
- * Command to disconnect a container from a network.
- *
  * @author Finn Birich
  */
 public class DisconnectNetworkCmd {
@@ -24,25 +22,16 @@ public class DisconnectNetworkCmd {
         this.config = new DisconnectConfig();
     }
 
-    /**
-     * Set the container to disconnect.
-     */
     public DisconnectNetworkCmd withContainerId(String containerId) {
         config.container = containerId;
         return this;
     }
 
-    /**
-     * Force disconnection.
-     */
     public DisconnectNetworkCmd withForce(boolean force) {
         config.force = force;
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public void exec() {
         try {
             DockerResponse response = client.post("/networks/" + networkId + "/disconnect", config);
@@ -58,9 +47,6 @@ public class DisconnectNetworkCmd {
         }
     }
 
-    /**
-     * Disconnect configuration.
-     */
     private static class DisconnectConfig {
         @SerializedName("Container")
         String container;

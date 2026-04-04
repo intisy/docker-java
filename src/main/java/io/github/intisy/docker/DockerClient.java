@@ -21,21 +21,6 @@ import java.io.IOException;
  *     .withHost("unix:///var/run/docker.sock")
  *     .build();
  *
- * // List containers
- * List<Container> containers = client.listContainers().withShowAll(true).exec();
- *
- * // Pull and run a container
- * client.pullImage("nginx:alpine").exec(5, TimeUnit.MINUTES);
- * CreateContainerResponse response = client.createContainer("nginx:alpine")
- *     .withName("my-nginx")
- *     .exec();
- * client.startContainer(response.getId()).exec();
- *
- * // Clean up
- * client.stopContainer(response.getId()).exec();
- * client.removeContainer(response.getId()).exec();
- * }</pre>
- *
  * @author Finn Birich
  */
 public class DockerClient implements Closeable {
@@ -59,8 +44,6 @@ public class DockerClient implements Closeable {
             return builder().withHost("unix:///var/run/docker.sock").build();
         }
     }
-
-    // ==================== Container Commands ====================
 
     public ListContainersCmd listContainers() {
         return new ListContainersCmd(httpClient);
@@ -122,8 +105,6 @@ public class DockerClient implements Closeable {
         return new ExecInspectCmd(httpClient, execId);
     }
 
-    // ==================== Image Commands ====================
-
     public ListImagesCmd listImages() {
         return new ListImagesCmd(httpClient);
     }
@@ -148,8 +129,6 @@ public class DockerClient implements Closeable {
         return new BuildImageCmd(httpClient);
     }
 
-    // ==================== Volume Commands ====================
-
     public ListVolumesCmd listVolumes() {
         return new ListVolumesCmd(httpClient);
     }
@@ -165,8 +144,6 @@ public class DockerClient implements Closeable {
     public InspectVolumeCmd inspectVolume(String volumeName) {
         return new InspectVolumeCmd(httpClient, volumeName);
     }
-
-    // ==================== Network Commands ====================
 
     public ListNetworksCmd listNetworks() {
         return new ListNetworksCmd(httpClient);
@@ -191,8 +168,6 @@ public class DockerClient implements Closeable {
     public DisconnectNetworkCmd disconnectNetwork(String networkId) {
         return new DisconnectNetworkCmd(httpClient, networkId);
     }
-
-    // ==================== System Commands ====================
 
     public PingCmd ping() {
         return new PingCmd(httpClient);

@@ -13,8 +13,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Command to list containers.
- *
  * @author Finn Birich
  */
 public class ListContainersCmd {
@@ -36,25 +34,16 @@ public class ListContainersCmd {
         return this;
     }
 
-    /**
-     * Limit the number of containers returned.
-     */
     public ListContainersCmd withLimit(int limit) {
         this.limit = limit;
         return this;
     }
 
-    /**
-     * Return size information.
-     */
     public ListContainersCmd withShowSize(boolean showSize) {
         this.showSize = showSize;
         return this;
     }
 
-    /**
-     * Add a filter.
-     */
     public ListContainersCmd withFilter(String key, String... values) {
         if (this.filters == null) {
             this.filters = new HashMap<>();
@@ -70,23 +59,14 @@ public class ListContainersCmd {
         return withFilter("status", status);
     }
 
-    /**
-     * Filter by name.
-     */
     public ListContainersCmd withNameFilter(String name) {
         return withFilter("name", name);
     }
 
-    /**
-     * Filter by label.
-     */
     public ListContainersCmd withLabelFilter(String label) {
         return withFilter("label", label);
     }
 
-    /**
-     * Execute the command.
-     */
     public List<Container> exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

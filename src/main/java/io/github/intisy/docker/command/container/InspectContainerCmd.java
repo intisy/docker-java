@@ -11,8 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to inspect a container.
- *
  * @author Finn Birich
  */
 public class InspectContainerCmd {
@@ -25,17 +23,11 @@ public class InspectContainerCmd {
         this.containerId = containerId;
     }
 
-    /**
-     * Return size information.
-     */
     public InspectContainerCmd withSize(boolean showSize) {
         this.showSize = showSize;
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public ContainerInspect exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

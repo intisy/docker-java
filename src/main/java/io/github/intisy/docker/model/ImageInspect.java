@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Detailed information about an image from docker inspect.
- *
  * @author Finn Birich
  */
 public class ImageInspect {
@@ -130,9 +128,6 @@ public class ImageInspect {
         return metadata;
     }
 
-    /**
-     * Image configuration.
-     */
     public static class ImageConfig {
         @SerializedName("Hostname")
         private String hostname;
@@ -233,9 +228,6 @@ public class ImageInspect {
         }
     }
 
-    /**
-     * Root filesystem info.
-     */
     public static class RootFS {
         @SerializedName("Type")
         private String type;
@@ -252,9 +244,6 @@ public class ImageInspect {
         }
     }
 
-    /**
-     * Image metadata.
-     */
     public static class Metadata {
         @SerializedName("LastTagTime")
         private String lastTagTime;

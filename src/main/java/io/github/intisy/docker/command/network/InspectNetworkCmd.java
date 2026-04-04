@@ -11,8 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to inspect a network.
- *
  * @author Finn Birich
  */
 public class InspectNetworkCmd {
@@ -26,9 +24,6 @@ public class InspectNetworkCmd {
         this.networkId = networkId;
     }
 
-    /**
-     * Show detailed information.
-     */
     public InspectNetworkCmd withVerbose(boolean verbose) {
         this.verbose = verbose;
         return this;
@@ -42,9 +37,6 @@ public class InspectNetworkCmd {
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public Network exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

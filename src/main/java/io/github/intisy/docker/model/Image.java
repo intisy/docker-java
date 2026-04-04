@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Represents a Docker image.
- *
  * @author Finn Birich
  */
 public class Image {

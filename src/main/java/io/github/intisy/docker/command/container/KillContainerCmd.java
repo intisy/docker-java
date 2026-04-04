@@ -10,8 +10,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to kill a container.
- *
  * @author Finn Birich
  */
 public class KillContainerCmd {
@@ -32,9 +30,6 @@ public class KillContainerCmd {
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public void exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

@@ -129,9 +129,6 @@ public class MacDockerProvider extends DockerProvider {
         }
     }
 
-    /**
-     * Download and install Lima from GitHub releases.
-     */
     @SuppressWarnings("deprecation")
     private void downloadAndInstallLima() throws IOException {
         String arch = getArch();
@@ -182,9 +179,6 @@ public class MacDockerProvider extends DockerProvider {
         log.info("Lima {} installed successfully", LIMA_VERSION);
     }
 
-    /**
-     * Get the architecture string for Lima download.
-     */
     private String getArch() {
         String osArch = System.getProperty("os.arch");
         switch (osArch) {
@@ -219,9 +213,6 @@ public class MacDockerProvider extends DockerProvider {
         log.info("Docker daemon started in Lima VM (instance: {}, port: {})", instanceId, dockerPort);
     }
 
-    /**
-     * Create and start a Lima VM configured for Docker.
-     */
     private void createAndStartLimaVm() throws IOException, InterruptedException {
         String limactl = getLimactlPath();
 
@@ -270,9 +261,6 @@ public class MacDockerProvider extends DockerProvider {
         ensureDockerRunning();
     }
 
-    /**
-     * Create Lima configuration YAML for Docker.
-     */
     private String createLimaConfig() {
         return String.format(
                 "# Lima VM configuration for docker-java\n" +
@@ -357,9 +345,6 @@ public class MacDockerProvider extends DockerProvider {
         }
     }
 
-    /**
-     * Run a Lima shell command in the VM.
-     */
     private String runLimaShellCommand(String command) throws IOException, InterruptedException {
         String limactl = getLimactlPath();
         ProcessBuilder pb = new ProcessBuilder(limactl, "shell", vmName, "bash", "-c", command);
@@ -370,9 +355,6 @@ public class MacDockerProvider extends DockerProvider {
         return new String(output).trim();
     }
 
-    /**
-     * Run a limactl command.
-     */
     private String runLimaCommand(String... command) throws IOException, InterruptedException {
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.redirectErrorStream(true);
@@ -382,9 +364,6 @@ public class MacDockerProvider extends DockerProvider {
         return new String(output).trim();
     }
 
-    /**
-     * Get Lima VM logs for debugging.
-     */
     private String getLimaLogs() {
         try {
             return runLimaShellCommand("sudo journalctl -u docker --no-pager -n 50 2>/dev/null || cat /var/log/docker.log 2>/dev/null || echo 'No logs available'");
@@ -393,9 +372,6 @@ public class MacDockerProvider extends DockerProvider {
         }
     }
 
-    /**
-     * Wait for Docker to be accessible.
-     */
     private boolean waitForDocker() throws InterruptedException {
         log.debug("Waiting for Docker daemon on localhost:{}...", dockerPort);
         long timeoutMillis = TimeUnit.SECONDS.toMillis(120);

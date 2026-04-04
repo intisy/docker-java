@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Docker system information.
- *
  * @author Finn Birich
  */
 public class SystemInfo {

@@ -11,8 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to stop a container.
- *
  * @author Finn Birich
  */
 public class StopContainerCmd {
@@ -33,9 +31,6 @@ public class StopContainerCmd {
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public void exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

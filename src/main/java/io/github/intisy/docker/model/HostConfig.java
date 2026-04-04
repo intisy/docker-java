@@ -8,8 +8,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Host configuration for a container.
- *
  * @author Finn Birich
  */
 public class HostConfig {
@@ -364,9 +362,6 @@ public class HostConfig {
         return this;
     }
 
-    /**
-     * Restart policy for a container.
-     */
     public static class RestartPolicy {
         @SerializedName("Name")
         private String name;

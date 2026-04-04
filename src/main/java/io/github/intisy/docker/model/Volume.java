@@ -5,8 +5,6 @@ import com.google.gson.annotations.SerializedName;
 import java.util.Map;
 
 /**
- * Represents a Docker volume.
- *
  * @author Finn Birich
  */
 public class Volume {
@@ -73,9 +71,6 @@ public class Volume {
         return usageData;
     }
 
-    /**
-     * Volume usage data.
-     */
     public static class UsageData {
         @SerializedName("Size")
         private Long size;

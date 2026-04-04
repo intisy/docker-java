@@ -11,8 +11,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 /**
- * Fetches the latest Docker version from GitHub.
- *
  * @author Finn Birich
  */
 public class DockerVersionFetcher {
@@ -49,9 +47,6 @@ public class DockerVersionFetcher {
         return latestVersion;
     }
     
-    /**
-     * Reset the cached version (useful for testing).
-     */
     public static void resetCache() {
         latestVersion = null;
     }

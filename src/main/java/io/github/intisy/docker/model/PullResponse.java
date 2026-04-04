@@ -3,8 +3,6 @@ package io.github.intisy.docker.model;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * Response from pulling an image.
- *
  * @author Finn Birich
  */
 public class PullResponse {
@@ -54,9 +52,6 @@ public class PullResponse {
         return error != null || errorDetail != null;
     }
 
-    /**
-     * Progress detail.
-     */
     public static class ProgressDetail {
         @SerializedName("current")
         private Long current;
@@ -80,9 +75,6 @@ public class PullResponse {
         }
     }
 
-    /**
-     * Error detail.
-     */
     public static class ErrorDetail {
         @SerializedName("message")
         private String message;

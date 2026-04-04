@@ -11,8 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Command to connect a container to a network.
- *
  * @author Finn Birich
  */
 public class ConnectNetworkCmd {
@@ -26,25 +24,16 @@ public class ConnectNetworkCmd {
         this.config = new ConnectConfig();
     }
 
-    /**
-     * Set the container to connect.
-     */
     public ConnectNetworkCmd withContainerId(String containerId) {
         config.container = containerId;
         return this;
     }
 
-    /**
-     * Configure endpoint settings.
-     */
     public ConnectNetworkCmd withEndpointConfig(EndpointConfig endpointConfig) {
         config.endpointConfig = endpointConfig;
         return this;
     }
 
-    /**
-     * Set IPv4 address for the container.
-     */
     public ConnectNetworkCmd withIPv4Address(String ipv4Address) {
         if (config.endpointConfig == null) {
             config.endpointConfig = new EndpointConfig();
@@ -56,9 +45,6 @@ public class ConnectNetworkCmd {
         return this;
     }
 
-    /**
-     * Set IPv6 address for the container.
-     */
     public ConnectNetworkCmd withIPv6Address(String ipv6Address) {
         if (config.endpointConfig == null) {
             config.endpointConfig = new EndpointConfig();
@@ -70,9 +56,6 @@ public class ConnectNetworkCmd {
         return this;
     }
 
-    /**
-     * Add network aliases for the container.
-     */
     public ConnectNetworkCmd withAliases(String... aliases) {
         if (config.endpointConfig == null) {
             config.endpointConfig = new EndpointConfig();
@@ -86,9 +69,6 @@ public class ConnectNetworkCmd {
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public void exec() {
         try {
             DockerResponse response = client.post("/networks/" + networkId + "/connect", config);
@@ -104,9 +84,6 @@ public class ConnectNetworkCmd {
         }
     }
 
-    /**
-     * Connection configuration.
-     */
     private static class ConnectConfig {
         @SerializedName("Container")
         String container;
@@ -115,9 +92,6 @@ public class ConnectNetworkCmd {
         EndpointConfig endpointConfig;
     }
 
-    /**
-     * Endpoint configuration.
-     */
     public static class EndpointConfig {
         @SerializedName("IPAMConfig")
         IPAMConfig ipamConfig;
@@ -129,9 +103,6 @@ public class ConnectNetworkCmd {
         List<String> aliases;
     }
 
-    /**
-     * IPAM configuration for endpoint.
-     */
     public static class IPAMConfig {
         @SerializedName("IPv4Address")
         String ipv4Address;

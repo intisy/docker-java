@@ -8,8 +8,6 @@ import io.github.intisy.docker.transport.DockerResponse;
 import java.io.IOException;
 
 /**
- * Command to remove a network.
- *
  * @author Finn Birich
  */
 public class RemoveNetworkCmd {
@@ -21,9 +19,6 @@ public class RemoveNetworkCmd {
         this.networkId = networkId;
     }
 
-    /**
-     * Execute the command.
-     */
     public void exec() {
         try {
             DockerResponse response = client.delete("/networks/" + networkId);

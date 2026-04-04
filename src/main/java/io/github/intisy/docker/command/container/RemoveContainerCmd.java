@@ -10,8 +10,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to remove a container.
- *
  * @author Finn Birich
  */
 public class RemoveContainerCmd {
@@ -26,33 +24,21 @@ public class RemoveContainerCmd {
         this.containerId = containerId;
     }
 
-    /**
-     * Force remove a running container.
-     */
     public RemoveContainerCmd withForce(boolean force) {
         this.force = force;
         return this;
     }
 
-    /**
-     * Remove associated volumes.
-     */
     public RemoveContainerCmd withRemoveVolumes(boolean removeVolumes) {
         this.removeVolumes = removeVolumes;
         return this;
     }
 
-    /**
-     * Remove associated links.
-     */
     public RemoveContainerCmd withRemoveLinks(boolean removeLinks) {
         this.removeLinks = removeLinks;
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public void exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

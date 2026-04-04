@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Detailed information about a container from docker inspect.
- *
  * @author Finn Birich
  */
 public class ContainerInspect {
@@ -165,9 +163,6 @@ public class ContainerInspect {
         return mounts;
     }
 
-    /**
-     * Container state information.
-     */
     public static class ContainerState {
         @SerializedName("Status")
         private String status;
@@ -247,9 +242,6 @@ public class ContainerInspect {
         }
     }
 
-    /**
-     * Network settings for an inspected container.
-     */
     public static class NetworkSettings {
         @SerializedName("Bridge")
         private String bridge;

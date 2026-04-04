@@ -10,8 +10,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 /**
- * Command to get system information.
- *
  * @author Finn Birich
  */
 public class InfoCmd {
@@ -22,9 +20,6 @@ public class InfoCmd {
         this.client = client;
     }
 
-    /**
-     * Execute the command.
-     */
     public SystemInfo exec() {
         try {
             DockerResponse response = client.get("/info");

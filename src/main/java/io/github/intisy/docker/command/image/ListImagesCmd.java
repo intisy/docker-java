@@ -13,8 +13,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Command to list images.
- *
  * @author Finn Birich
  */
 public class ListImagesCmd {
@@ -35,17 +33,11 @@ public class ListImagesCmd {
         return this;
     }
 
-    /**
-     * Show digest information.
-     */
     public ListImagesCmd withDigests(boolean digests) {
         this.digests = digests;
         return this;
     }
 
-    /**
-     * Add a filter.
-     */
     public ListImagesCmd withFilter(String key, String... values) {
         if (this.filters == null) {
             this.filters = new HashMap<>();
@@ -54,16 +46,10 @@ public class ListImagesCmd {
         return this;
     }
 
-    /**
-     * Filter by dangling status.
-     */
     public ListImagesCmd withDanglingFilter(boolean dangling) {
         return withFilter("dangling", String.valueOf(dangling));
     }
 
-    /**
-     * Filter by label.
-     */
     public ListImagesCmd withLabelFilter(String label) {
         return withFilter("label", label);
     }
@@ -75,9 +61,6 @@ public class ListImagesCmd {
         return withFilter("reference", reference);
     }
 
-    /**
-     * Execute the command.
-     */
     public List<Image> exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

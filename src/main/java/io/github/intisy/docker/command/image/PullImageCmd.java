@@ -14,8 +14,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Command to pull an image.
- *
  * @author Finn Birich
  */
 public class PullImageCmd {
@@ -40,9 +38,6 @@ public class PullImageCmd {
         }
     }
 
-    /**
-     * Set the tag to pull.
-     */
     public PullImageCmd withTag(String tag) {
         this.tag = tag;
         return this;

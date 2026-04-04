@@ -11,8 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to remove a volume.
- *
  * @author Finn Birich
  */
 public class RemoveVolumeCmd {
@@ -25,17 +23,11 @@ public class RemoveVolumeCmd {
         this.volumeName = volumeName;
     }
 
-    /**
-     * Force removal of the volume.
-     */
     public RemoveVolumeCmd withForce(boolean force) {
         this.force = force;
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public void exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

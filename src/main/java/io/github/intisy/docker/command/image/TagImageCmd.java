@@ -10,8 +10,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to tag an image.
- *
  * @author Finn Birich
  */
 public class TagImageCmd {
@@ -25,17 +23,11 @@ public class TagImageCmd {
         this.imageId = imageId;
     }
 
-    /**
-     * Set the repository name.
-     */
     public TagImageCmd withRepo(String repo) {
         this.repo = repo;
         return this;
     }
 
-    /**
-     * Set the tag name.
-     */
     public TagImageCmd withTag(String tag) {
         this.tag = tag;
         return this;
@@ -56,9 +48,6 @@ public class TagImageCmd {
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public void exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

@@ -11,8 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to get container logs.
- *
  * @author Finn Birich
  */
 public class LogsContainerCmd {
@@ -39,17 +37,11 @@ public class LogsContainerCmd {
         return this;
     }
 
-    /**
-     * Include stdout.
-     */
     public LogsContainerCmd withStdout(boolean stdout) {
         this.stdout = stdout;
         return this;
     }
 
-    /**
-     * Include stderr.
-     */
     public LogsContainerCmd withStderr(boolean stderr) {
         this.stderr = stderr;
         return this;
@@ -71,9 +63,6 @@ public class LogsContainerCmd {
         return this;
     }
 
-    /**
-     * Add timestamps to output.
-     */
     public LogsContainerCmd withTimestamps(boolean timestamps) {
         this.timestamps = timestamps;
         return this;

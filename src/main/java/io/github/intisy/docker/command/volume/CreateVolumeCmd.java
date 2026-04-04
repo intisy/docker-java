@@ -11,8 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to create a volume.
- *
  * @author Finn Birich
  */
 public class CreateVolumeCmd {
@@ -24,33 +22,21 @@ public class CreateVolumeCmd {
         this.config = new VolumeConfig();
     }
 
-    /**
-     * Set the volume name.
-     */
     public CreateVolumeCmd withName(String name) {
         config.name = name;
         return this;
     }
 
-    /**
-     * Set the driver to use.
-     */
     public CreateVolumeCmd withDriver(String driver) {
         config.driver = driver;
         return this;
     }
 
-    /**
-     * Set driver-specific options.
-     */
     public CreateVolumeCmd withDriverOpts(Map<String, String> driverOpts) {
         config.driverOpts = driverOpts;
         return this;
     }
 
-    /**
-     * Add a driver option.
-     */
     public CreateVolumeCmd withDriverOpt(String key, String value) {
         if (config.driverOpts == null) {
             config.driverOpts = new HashMap<>();
@@ -59,17 +45,11 @@ public class CreateVolumeCmd {
         return this;
     }
 
-    /**
-     * Set labels.
-     */
     public CreateVolumeCmd withLabels(Map<String, String> labels) {
         config.labels = labels;
         return this;
     }
 
-    /**
-     * Add a label.
-     */
     public CreateVolumeCmd withLabel(String key, String value) {
         if (config.labels == null) {
             config.labels = new HashMap<>();
@@ -78,9 +58,6 @@ public class CreateVolumeCmd {
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public Volume exec() {
         try {
             DockerResponse response = client.post("/volumes/create", config);
@@ -95,9 +72,6 @@ public class CreateVolumeCmd {
         }
     }
 
-    /**
-     * Volume creation configuration.
-     */
     private static class VolumeConfig {
         @SerializedName("Name")
         String name;

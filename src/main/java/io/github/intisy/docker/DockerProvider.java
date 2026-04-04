@@ -88,9 +88,6 @@ public abstract class DockerProvider {
     @Deprecated
     protected static final Path DOCKER_DIR = DEFAULT_DOCKER_DIR;
 
-    /**
-     * Get the appropriate DockerProvider for the current operating system.
-     */
     public static DockerProvider get() {
         String os = System.getProperty("os.name").toLowerCase();
         if (os.contains("win")) {

@@ -8,8 +8,6 @@ import io.github.intisy.docker.transport.DockerResponse;
 import java.io.IOException;
 
 /**
- * Command to get Docker version information.
- *
  * @author Finn Birich
  */
 public class VersionCmd {
@@ -19,9 +17,6 @@ public class VersionCmd {
         this.client = client;
     }
 
-    /**
-     * Execute the command.
-     */
     public Version exec() {
         try {
             DockerResponse response = client.get("/version");
