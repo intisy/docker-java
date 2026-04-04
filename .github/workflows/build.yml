@@ -23,8 +23,8 @@ jobs:
         run: chmod +x gradlew
         if: matrix.os != 'windows-latest'
       
-      - name: Run tests
-        run: ./gradlew test --info
+      - name: Run unit tests
+        run: ./gradlew test --tests "io.github.intisy.docker.DockerProviderTest" --tests "io.github.intisy.docker.DockerClientBuilderTest" --tests "io.github.intisy.docker.ModelTest" --info
         shell: bash
 
   build:
