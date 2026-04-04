@@ -33,6 +33,8 @@ public class DeviceRequest {
 
     /**
      * Create a device request for all NVIDIA GPUs.
+      *
+      * @return a device request for all NVIDIA GPUs
      */
     public static DeviceRequest requestAllGpus() {
         return new DeviceRequest()
@@ -43,6 +45,9 @@ public class DeviceRequest {
 
     /**
      * Create a device request for a specific number of GPUs.
+      *
+      * @param count the number of GPUs to request
+      * @return a device request for the specified number of GPUs
      */
     public static DeviceRequest requestGpus(int count) {
         return new DeviceRequest()
@@ -53,6 +58,9 @@ public class DeviceRequest {
 
     /**
      * Create a device request for specific GPU device IDs.
+      *
+      * @param deviceIds the GPU device IDs to request
+      * @return a device request for the specified GPU devices
      */
     public static DeviceRequest requestGpusByIds(List<String> deviceIds) {
         return new DeviceRequest()

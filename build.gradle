@@ -28,6 +28,7 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    onlyIf { gradle.startParameter.taskNames.any { it == 'test' || it == ':test' } }
 }
 
 java {

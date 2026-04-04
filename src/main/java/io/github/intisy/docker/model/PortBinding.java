@@ -3,8 +3,6 @@ package io.github.intisy.docker.model;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * Represents a port binding configuration.
- *
  * @author Finn Birich
  */
 public class PortBinding {

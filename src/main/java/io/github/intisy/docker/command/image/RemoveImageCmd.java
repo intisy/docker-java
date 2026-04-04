@@ -14,8 +14,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Command to remove an image.
- *
  * @author Finn Birich
  */
 public class RemoveImageCmd {
@@ -29,9 +27,6 @@ public class RemoveImageCmd {
         this.imageId = imageId;
     }
 
-    /**
-     * Force removal of the image.
-     */
     public RemoveImageCmd withForce(boolean force) {
         this.force = force;
         return this;
@@ -39,15 +34,15 @@ public class RemoveImageCmd {
 
     /**
      * Do not delete untagged parent images.
+      *
+      * @param noPrune true to keep untagged parent images
+      * @return this command instance
      */
     public RemoveImageCmd withNoPrune(boolean noPrune) {
         this.noPrune = noPrune;
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public List<DeletedLayer> exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();
@@ -77,9 +72,6 @@ public class RemoveImageCmd {
         }
     }
 
-    /**
-     * Represents a deleted image layer.
-     */
     public static class DeletedLayer {
         private String Untagged;
         private String Deleted;

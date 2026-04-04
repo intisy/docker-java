@@ -5,8 +5,6 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * Docker version information.
- *
  * @author Finn Birich
  */
 public class Version {
@@ -94,9 +92,6 @@ public class Version {
         return buildTime;
     }
 
-    /**
-     * Platform info.
-     */
     public static class Platform {
         @SerializedName("Name")
         private String name;
@@ -106,9 +101,6 @@ public class Version {
         }
     }
 
-    /**
-     * Component info.
-     */
     public static class Component {
         @SerializedName("Name")
         private String name;

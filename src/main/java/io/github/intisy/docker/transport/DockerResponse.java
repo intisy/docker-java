@@ -5,8 +5,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Represents a response from the Docker daemon.
- *
  * @author Finn Birich
  */
 public class DockerResponse {

@@ -10,8 +10,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to restart a container.
- *
  * @author Finn Birich
  */
 public class RestartContainerCmd {
@@ -26,15 +24,15 @@ public class RestartContainerCmd {
 
     /**
      * Set timeout in seconds before killing the container.
+      *
+      * @param timeout seconds to wait before killing
+      * @return this command instance
      */
     public RestartContainerCmd withTimeout(int timeout) {
         this.timeout = timeout;
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public void exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

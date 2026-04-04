@@ -5,8 +5,6 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * I/O utility methods for Java 8 compatibility.
- *
  * @author Finn Birich
  */
 final class IOUtils {

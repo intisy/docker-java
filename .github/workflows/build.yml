@@ -35,7 +35,7 @@ jobs:
         run: ./gradlew test --tests "io.github.intisy.docker.ModelTest" --tests "io.github.intisy.docker.DockerClientBuilderTest" --info
         shell: bash
       
-      - name: Run tests (Linux - excluding daemon startup tests)
+      - name: Run tests
         if: matrix.test-type == 'integration'
         run: ./gradlew test --tests "io.github.intisy.docker.ModelTest" --tests "io.github.intisy.docker.DockerClientBuilderTest" --tests "io.github.intisy.docker.WslDiagnosticTest" --info
         shell: bash
@@ -62,7 +62,7 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Run build with Gradle Wrapper (skip tests - already run in test job)
+      - name: Run build with Gradle Wrapper
         run: ./gradlew build -x test -Partifact_version=${{ github.ref_name }}
 
       - name: Create Release and Upload Jar

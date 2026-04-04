@@ -3,8 +3,6 @@ package io.github.intisy.docker.model;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * Response from creating an exec instance.
- *
  * @author Finn Birich
  */
 public class ExecCreateResponse {

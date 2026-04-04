@@ -10,8 +10,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to kill a container.
- *
  * @author Finn Birich
  */
 public class KillContainerCmd {
@@ -26,15 +24,15 @@ public class KillContainerCmd {
 
     /**
      * Set the signal to send (default: SIGKILL).
+      *
+      * @param signal the signal to send (e.g. SIGTERM)
+      * @return this command instance
      */
     public KillContainerCmd withSignal(String signal) {
         this.signal = signal;
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public void exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

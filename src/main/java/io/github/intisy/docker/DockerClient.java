@@ -60,8 +60,6 @@ public class DockerClient implements Closeable {
         }
     }
 
-    // ==================== Container Commands ====================
-
     public ListContainersCmd listContainers() {
         return new ListContainersCmd(httpClient);
     }
@@ -122,8 +120,6 @@ public class DockerClient implements Closeable {
         return new ExecInspectCmd(httpClient, execId);
     }
 
-    // ==================== Image Commands ====================
-
     public ListImagesCmd listImages() {
         return new ListImagesCmd(httpClient);
     }
@@ -148,8 +144,6 @@ public class DockerClient implements Closeable {
         return new BuildImageCmd(httpClient);
     }
 
-    // ==================== Volume Commands ====================
-
     public ListVolumesCmd listVolumes() {
         return new ListVolumesCmd(httpClient);
     }
@@ -165,8 +159,6 @@ public class DockerClient implements Closeable {
     public InspectVolumeCmd inspectVolume(String volumeName) {
         return new InspectVolumeCmd(httpClient, volumeName);
     }
-
-    // ==================== Network Commands ====================
 
     public ListNetworksCmd listNetworks() {
         return new ListNetworksCmd(httpClient);
@@ -191,8 +183,6 @@ public class DockerClient implements Closeable {
     public DisconnectNetworkCmd disconnectNetwork(String networkId) {
         return new DisconnectNetworkCmd(httpClient, networkId);
     }
-
-    // ==================== System Commands ====================
 
     public PingCmd ping() {
         return new PingCmd(httpClient);

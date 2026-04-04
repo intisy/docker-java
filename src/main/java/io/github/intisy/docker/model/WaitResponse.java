@@ -3,8 +3,6 @@ package io.github.intisy.docker.model;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * Response from waiting for a container.
- *
  * @author Finn Birich
  */
 public class WaitResponse {
@@ -22,9 +20,6 @@ public class WaitResponse {
         return error;
     }
 
-    /**
-     * Error detail from wait.
-     */
     public static class WaitError {
         @SerializedName("Message")
         private String message;

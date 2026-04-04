@@ -3,8 +3,6 @@ package io.github.intisy.docker.model;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * Represents a mount point for a container.
- *
  * @author Finn Birich
  */
 public class Mount {

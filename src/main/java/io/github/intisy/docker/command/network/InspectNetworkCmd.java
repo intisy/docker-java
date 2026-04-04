@@ -11,8 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to inspect a network.
- *
  * @author Finn Birich
  */
 public class InspectNetworkCmd {
@@ -26,9 +24,6 @@ public class InspectNetworkCmd {
         this.networkId = networkId;
     }
 
-    /**
-     * Show detailed information.
-     */
     public InspectNetworkCmd withVerbose(boolean verbose) {
         this.verbose = verbose;
         return this;
@@ -36,15 +31,15 @@ public class InspectNetworkCmd {
 
     /**
      * Filter by scope (swarm, global, or local).
+      *
+      * @param scope the scope to filter by
+      * @return this command instance
      */
     public InspectNetworkCmd withScope(String scope) {
         this.scope = scope;
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public Network exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

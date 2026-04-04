@@ -340,9 +340,6 @@ public class ContainerConfig {
         return this;
     }
 
-    /**
-     * Network configuration for container creation.
-     */
     public static class NetworkingConfig {
         @SerializedName("EndpointsConfig")
         private Map<String, EndpointConfig> endpointsConfig;
@@ -368,9 +365,6 @@ public class ContainerConfig {
         }
     }
 
-    /**
-     * Endpoint configuration for a network.
-     */
     public static class EndpointConfig {
         @SerializedName("IPAMConfig")
         private IPAMConfig ipamConfig;
@@ -451,9 +445,6 @@ public class ContainerConfig {
         }
     }
 
-    /**
-     * IPAM configuration for an endpoint.
-     */
     public static class IPAMConfig {
         @SerializedName("IPv4Address")
         private String ipv4Address;

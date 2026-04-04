@@ -11,8 +11,6 @@ import java.io.IOException;
 import java.util.*;
 
 /**
- * Command to create a container.
- *
  * @author Finn Birich
  */
 public class CreateContainerCmd {
@@ -26,145 +24,91 @@ public class CreateContainerCmd {
         this.config.setImage(image);
     }
 
-    /**
-     * Set the container name.
-     */
     public CreateContainerCmd withName(String name) {
         this.name = name;
         return this;
     }
 
-    /**
-     * Set the hostname.
-     */
     public CreateContainerCmd withHostname(String hostname) {
         config.setHostname(hostname);
         return this;
     }
 
-    /**
-     * Set the user.
-     */
     public CreateContainerCmd withUser(String user) {
         config.setUser(user);
         return this;
     }
 
-    /**
-     * Set environment variables.
-     */
     public CreateContainerCmd withEnv(List<String> env) {
         config.setEnv(env);
         return this;
     }
 
-    /**
-     * Add an environment variable.
-     */
     public CreateContainerCmd withEnv(String key, String value) {
         config.addEnv(key, value);
         return this;
     }
 
-    /**
-     * Set the command to run.
-     */
     public CreateContainerCmd withCmd(String... cmd) {
         config.setCmd(cmd);
         return this;
     }
 
-    /**
-     * Set the command to run.
-     */
     public CreateContainerCmd withCmd(List<String> cmd) {
         config.setCmd(cmd);
         return this;
     }
 
-    /**
-     * Set the entrypoint.
-     */
     public CreateContainerCmd withEntrypoint(String... entrypoint) {
         config.setEntrypoint(entrypoint);
         return this;
     }
 
-    /**
-     * Set the working directory.
-     */
     public CreateContainerCmd withWorkingDir(String workingDir) {
         config.setWorkingDir(workingDir);
         return this;
     }
 
-    /**
-     * Add a label.
-     */
     public CreateContainerCmd withLabel(String key, String value) {
         config.addLabel(key, value);
         return this;
     }
 
-    /**
-     * Set labels.
-     */
     public CreateContainerCmd withLabels(Map<String, String> labels) {
         config.setLabels(labels);
         return this;
     }
 
-    /**
-     * Add an exposed port.
-     */
     public CreateContainerCmd withExposedPort(ExposedPort port) {
         config.addExposedPort(port);
         return this;
     }
 
-    /**
-     * Set TTY mode.
-     */
     public CreateContainerCmd withTty(boolean tty) {
         config.setTty(tty);
         return this;
     }
 
-    /**
-     * Set stdin open.
-     */
     public CreateContainerCmd withStdinOpen(boolean stdinOpen) {
         config.setOpenStdin(stdinOpen);
         return this;
     }
 
-    /**
-     * Set attach stdout.
-     */
     public CreateContainerCmd withAttachStdout(boolean attach) {
         config.setAttachStdout(attach);
         return this;
     }
 
-    /**
-     * Set attach stderr.
-     */
     public CreateContainerCmd withAttachStderr(boolean attach) {
         config.setAttachStderr(attach);
         return this;
     }
 
-    /**
-     * Set the host configuration.
-     */
     public CreateContainerCmd withHostConfig(HostConfig hostConfig) {
         config.setHostConfig(hostConfig);
         return this;
     }
 
-    /**
-     * Add a port binding.
-     */
     public CreateContainerCmd withPortBinding(ExposedPort exposedPort, PortBinding binding) {
         if (config.getHostConfig() == null) {
             config.setHostConfig(new HostConfig());
@@ -174,9 +118,6 @@ public class CreateContainerCmd {
         return this;
     }
 
-    /**
-     * Publish all exposed ports.
-     */
     public CreateContainerCmd withPublishAllPorts(boolean publishAll) {
         if (config.getHostConfig() == null) {
             config.setHostConfig(new HostConfig());
@@ -185,9 +126,6 @@ public class CreateContainerCmd {
         return this;
     }
 
-    /**
-     * Add a bind mount.
-     */
     public CreateContainerCmd withBind(String hostPath, String containerPath) {
         if (config.getHostConfig() == null) {
             config.setHostConfig(new HostConfig());
@@ -198,6 +136,11 @@ public class CreateContainerCmd {
 
     /**
      * Add a bind mount with read-only option.
+      *
+      * @param hostPath the host path to mount
+      * @param containerPath the container path to mount to
+      * @param readOnly whether the mount should be read-only
+      * @return this command instance
      */
     public CreateContainerCmd withBind(String hostPath, String containerPath, boolean readOnly) {
         if (config.getHostConfig() == null) {
@@ -211,9 +154,6 @@ public class CreateContainerCmd {
         return this;
     }
 
-    /**
-     * Add a mount.
-     */
     public CreateContainerCmd withMount(Mount mount) {
         if (config.getHostConfig() == null) {
             config.setHostConfig(new HostConfig());
@@ -222,9 +162,6 @@ public class CreateContainerCmd {
         return this;
     }
 
-    /**
-     * Set the network mode.
-     */
     public CreateContainerCmd withNetworkMode(String networkMode) {
         if (config.getHostConfig() == null) {
             config.setHostConfig(new HostConfig());
@@ -233,9 +170,6 @@ public class CreateContainerCmd {
         return this;
     }
 
-    /**
-     * Set privileged mode.
-     */
     public CreateContainerCmd withPrivileged(boolean privileged) {
         if (config.getHostConfig() == null) {
             config.setHostConfig(new HostConfig());
@@ -244,9 +178,6 @@ public class CreateContainerCmd {
         return this;
     }
 
-    /**
-     * Set auto-remove.
-     */
     public CreateContainerCmd withAutoRemove(boolean autoRemove) {
         if (config.getHostConfig() == null) {
             config.setHostConfig(new HostConfig());
@@ -255,9 +186,6 @@ public class CreateContainerCmd {
         return this;
     }
 
-    /**
-     * Set restart policy.
-     */
     public CreateContainerCmd withRestartPolicy(HostConfig.RestartPolicy restartPolicy) {
         if (config.getHostConfig() == null) {
             config.setHostConfig(new HostConfig());
@@ -268,6 +196,9 @@ public class CreateContainerCmd {
 
     /**
      * Set memory limit in bytes.
+      *
+      * @param memory the memory limit in bytes
+      * @return this command instance
      */
     public CreateContainerCmd withMemory(long memory) {
         if (config.getHostConfig() == null) {
@@ -277,9 +208,6 @@ public class CreateContainerCmd {
         return this;
     }
 
-    /**
-     * Add DNS server.
-     */
     public CreateContainerCmd withDns(String dns) {
         if (config.getHostConfig() == null) {
             config.setHostConfig(new HostConfig());
@@ -293,9 +221,6 @@ public class CreateContainerCmd {
         return this;
     }
 
-    /**
-     * Add extra host.
-     */
     public CreateContainerCmd withExtraHost(String hostname, String ip) {
         if (config.getHostConfig() == null) {
             config.setHostConfig(new HostConfig());
@@ -304,9 +229,6 @@ public class CreateContainerCmd {
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public CreateContainerResponse exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

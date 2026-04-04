@@ -88,9 +88,6 @@ public abstract class DockerProvider {
     @Deprecated
     protected static final Path DOCKER_DIR = DEFAULT_DOCKER_DIR;
 
-    /**
-     * Get the appropriate DockerProvider for the current operating system.
-     */
     public static DockerProvider get() {
         String os = System.getProperty("os.name").toLowerCase();
         if (os.contains("win")) {
@@ -116,12 +113,20 @@ public abstract class DockerProvider {
      * Start the Docker daemon.
      * This will always start a new managed Docker daemon instance.
      * The daemon will use isolated paths to avoid conflicts with Docker Desktop or other instances.
+     *
+     * @throws IOException if an I/O error occurs during startup
+     * @throws InterruptedException if the thread is interrupted during startup
+      * @throws IOException if an I/O error occurs during startup
+      * @throws InterruptedException if the thread is interrupted during startup
      */
     public abstract void start() throws IOException, InterruptedException;
 
     /**
      * Get a DockerClient for interacting with the Docker daemon.
      * The client can be used to manage containers, images, volumes, networks, etc.
+     *
+     * @return the DockerClient instance
+      * @return the DockerClient instance
      */
     public abstract DockerClient getClient();
 
@@ -134,6 +139,9 @@ public abstract class DockerProvider {
     /**
      * Ensure Docker is installed.
      * Downloads and installs Docker if necessary.
+     *
+     * @throws IOException if an I/O error occurs during installation
+      * @throws IOException if an I/O error occurs during installation
      */
     public abstract void ensureInstalled() throws IOException;
 

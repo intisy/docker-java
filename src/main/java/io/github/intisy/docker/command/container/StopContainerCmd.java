@@ -11,8 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Command to stop a container.
- *
  * @author Finn Birich
  */
 public class StopContainerCmd {
@@ -27,15 +25,15 @@ public class StopContainerCmd {
 
     /**
      * Set timeout in seconds before killing the container.
+      *
+      * @param timeout seconds to wait before killing
+      * @return this command instance
      */
     public StopContainerCmd withTimeout(int timeout) {
         this.timeout = timeout;
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public void exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

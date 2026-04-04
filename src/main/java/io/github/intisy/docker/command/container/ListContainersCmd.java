@@ -13,8 +13,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Command to list containers.
- *
  * @author Finn Birich
  */
 public class ListContainersCmd {
@@ -30,31 +28,25 @@ public class ListContainersCmd {
 
     /**
      * Show all containers (default shows just running).
+      *
+      * @param showAll true to show all containers, false for running only
+      * @return this command instance
      */
     public ListContainersCmd withShowAll(boolean showAll) {
         this.showAll = showAll;
         return this;
     }
 
-    /**
-     * Limit the number of containers returned.
-     */
     public ListContainersCmd withLimit(int limit) {
         this.limit = limit;
         return this;
     }
 
-    /**
-     * Return size information.
-     */
     public ListContainersCmd withShowSize(boolean showSize) {
         this.showSize = showSize;
         return this;
     }
 
-    /**
-     * Add a filter.
-     */
     public ListContainersCmd withFilter(String key, String... values) {
         if (this.filters == null) {
             this.filters = new HashMap<>();
@@ -65,28 +57,22 @@ public class ListContainersCmd {
 
     /**
      * Filter by status (created, restarting, running, removing, paused, exited, dead).
+      *
+      * @param status the status to filter by
+      * @return this command instance
      */
     public ListContainersCmd withStatusFilter(String status) {
         return withFilter("status", status);
     }
 
-    /**
-     * Filter by name.
-     */
     public ListContainersCmd withNameFilter(String name) {
         return withFilter("name", name);
     }
 
-    /**
-     * Filter by label.
-     */
     public ListContainersCmd withLabelFilter(String label) {
         return withFilter("label", label);
     }
 
-    /**
-     * Execute the command.
-     */
     public List<Container> exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();

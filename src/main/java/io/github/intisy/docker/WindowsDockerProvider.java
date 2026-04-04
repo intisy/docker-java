@@ -21,6 +21,16 @@ import static io.github.intisy.docker.IOUtils.readAllBytes;
  * Windows-specific Docker provider.
  * Supports both native Windows containers (requires admin) and WSL2-based Docker (no admin required).
  * Supports multiple simultaneous instances.
+ * <p>
+ * When running without administrator privileges, the provider will attempt to use WSL2.
+ * If one-time setup is needed (e.g. installing a WSL distro, installing Docker in WSL,
+ * or configuring passwordless sudo), the user is prompted with an optional auto-setup dialog.
+ * <p>
+ * The auto-setup prompt can be controlled via the {@code docker.auto.setup} system property:
+ * <ul>
+ *   <li>{@code "true"} (default) — show interactive prompt offering automatic setup</li>
+ *   <li>{@code "false"} — skip prompt, always show manual commands instead</li>
+ * </ul>
  *
  * @author Finn Birich
  */
@@ -53,6 +63,130 @@ public class WindowsDockerProvider extends DockerProvider {
         this.dataDir = instanceDir.resolve("data");
         this.execDir = instanceDir.resolve("exec");
         log.debug("Created WindowsDockerProvider with instance ID: {}", instanceId);
+    }
+
+    /**
+     * Prompt the user for automatic setup. Returns true if the user agrees,
+     * false if they prefer to see the manual commands instead.
+     * <p>
+     * Controlled by the {@code docker.auto.setup} system property:
+     * <ul>
+     *   <li>{@code "true"} (default) — show interactive prompt</li>
+     *   <li>{@code "false"} — skip prompt, always show manual commands (old behavior)</li>
+     * </ul>
+     *
+     * @param description Human-readable explanation of what will be set up
+     * @return true if the user accepted automatic setup
+     */
+    private boolean promptForAutoSetup(String description) {
+        boolean autoSetup = Boolean.parseBoolean(System.getProperty("docker.auto.setup", "true"));
+        if (!autoSetup) {
+            return false;
+        }
+
+        log.info("");
+        log.info("=== One-Time Setup Required ===");
+        log.info(description);
+        log.info("");
+        log.info("Would you like to run this automatically? [Y/n]");
+        log.info("(Set -Ddocker.auto.setup=false to always show manual commands instead)");
+
+        try {
+            Console console = System.console();
+            String input;
+            if (console != null) {
+                input = console.readLine("> ");
+            } else {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+                System.out.print("> ");
+                input = reader.readLine();
+            }
+
+            if (input == null) {
+                log.info("No interactive console available — defaulting to automatic setup (Y).");
+                return true;
+            }
+            input = input.trim().toLowerCase();
+            return input.isEmpty() || input.equals("y") || input.equals("yes");
+        } catch (IOException e) {
+            log.debug("Failed to read user input: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Run a command in WSL as the root user (using {@code wsl -u root}).
+     * This avoids the need for sudo/passwordless-sudo configuration.
+     *
+     * @param command        Shell command to execute
+     * @param timeoutSeconds Maximum seconds to wait
+     * @return Combined stdout/stderr output, trimmed
+     */
+    private String runWslCommandAsRoot(String command, int timeoutSeconds) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("wsl", "-d", wslDistro, "-u", "root", "-e", "bash", "-c", command);
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+
+            StringBuilder output = new StringBuilder();
+            Thread reader = new Thread(() -> {
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        output.append(line).append("\n");
+                    }
+                } catch (IOException e) {
+                    log.debug("Error reading process output: {}", e.getMessage());
+                }
+            });
+            reader.start();
+
+            boolean completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+            reader.join(1000);
+
+            if (!completed) {
+                process.destroyForcibly();
+                log.warn("WSL root command timed out after {} seconds", timeoutSeconds);
+            }
+
+            return output.toString().trim();
+        } catch (IOException | InterruptedException e) {
+            log.debug("WSL root command failed: {}", e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * Run a Windows command with UAC elevation (administrator prompt).
+     * Uses PowerShell {@code Start-Process -Verb RunAs} to trigger the UAC dialog.
+     *
+     * @param command    The executable to run elevated
+     * @param arguments  Arguments for the command
+     * @param waitForExit Whether to wait for the elevated process to complete
+     * @return true if the elevated process was started (and completed successfully if waitForExit)
+     */
+    private boolean runElevatedWindowsCommand(String command, String arguments, boolean waitForExit) {
+        try {
+            String psCommand = String.format(
+                    "Start-Process '%s' -ArgumentList '%s' -Verb RunAs%s",
+                    command, arguments, waitForExit ? " -Wait" : "");
+
+            ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-Command", psCommand);
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            byte[] output = readAllBytes(process.getInputStream());
+            int exitCode = process.waitFor();
+
+            String outputStr = new String(output).trim();
+            if (!outputStr.isEmpty()) {
+                log.debug("Elevated command output: {}", outputStr);
+            }
+
+            return exitCode == 0;
+        } catch (IOException | InterruptedException e) {
+            log.warn("Failed to run elevated command: {}", e.getMessage());
+            return false;
+        }
     }
 
     @Override
@@ -128,10 +262,6 @@ public class WindowsDockerProvider extends DockerProvider {
         }
     }
 
-    /**
-     * Check if NVIDIA Container Toolkit is installed in WSL2.
-     * @return true if installed, false otherwise
-     */
     public boolean isNvidiaContainerToolkitInstalled() {
         if (!usingWsl2 || wslDistro == null) {
             return false;
@@ -141,10 +271,6 @@ public class WindowsDockerProvider extends DockerProvider {
         return result.contains("installed");
     }
 
-    /**
-     * Check if NVIDIA GPU is available in WSL2.
-     * @return true if NVIDIA GPU is detected, false otherwise
-     */
     public boolean isNvidiaGpuAvailable() {
         if (!usingWsl2 || wslDistro == null) {
             return false;
@@ -159,6 +285,10 @@ public class WindowsDockerProvider extends DockerProvider {
     /**
      * Install NVIDIA Container Toolkit in WSL2.
      * This enables GPU passthrough to Docker containers.
+     * <p>
+     * If passwordless sudo is not available, the user is prompted to allow automatic
+     * configuration via {@code wsl -u root}. If declined, manual instructions are shown.
+     *
      * @throws IOException if installation fails
      */
     public void installNvidiaContainerToolkit() throws IOException {
@@ -170,17 +300,38 @@ public class WindowsDockerProvider extends DockerProvider {
         log.info("This may take a few minutes...");
         
         if (!checkPasswordlessSudoForApt()) {
-            log.error("NVIDIA Container Toolkit installation requires passwordless sudo.");
-            log.error("Please run this ONE-TIME setup in WSL ({}):", wslDistro);
-            log.error("");
-            log.error("  wsl -d {}", wslDistro);
-            log.error("  sudo bash -c 'echo \"$USER ALL=(ALL) NOPASSWD: ALL\" > /etc/sudoers.d/nopasswd-$USER'");
-            log.error("  sudo chmod 440 /etc/sudoers.d/nopasswd-$USER");
-            log.error("  exit");
-            log.error("");
-            log.error("Or install manually:");
-            printManualInstallInstructions();
-            throw new IOException("Passwordless sudo is required. Run the setup commands above in WSL.");
+            if (promptForAutoSetup("NVIDIA Container Toolkit installation requires passwordless sudo.\n" +
+                    "This will configure passwordless sudo for all commands in WSL (" + wslDistro + ").")) {
+                log.info("Configuring passwordless sudo in WSL ({})...", wslDistro);
+                String wslUser = runWslCommand("whoami", false, 5);
+                if (wslUser.isEmpty()) {
+                    throw new IOException("Could not determine WSL username.");
+                }
+                String sudoersCmd = String.format(
+                        "echo '%s ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/nopasswd-%s && chmod 440 /etc/sudoers.d/nopasswd-%s",
+                        wslUser, wslUser, wslUser);
+                String result = runWslCommandAsRoot(sudoersCmd, 10);
+                log.debug("Sudoers configuration result: {}", result);
+
+                if (!checkPasswordlessSudoForApt()) {
+                    log.error("Automatic sudoers configuration failed. Please configure manually.");
+                    printSudoersManualInstructions();
+                    throw new IOException("Failed to configure passwordless sudo automatically.");
+                }
+                log.info("Passwordless sudo configured successfully.");
+            } else {
+                log.error("NVIDIA Container Toolkit installation requires passwordless sudo.");
+                log.error("Please run this ONE-TIME setup in WSL ({}):", wslDistro);
+                log.error("");
+                log.error("  wsl -d {}", wslDistro);
+                log.error("  sudo bash -c 'echo \"$USER ALL=(ALL) NOPASSWD: ALL\" > /etc/sudoers.d/nopasswd-$USER'");
+                log.error("  sudo chmod 440 /etc/sudoers.d/nopasswd-$USER");
+                log.error("  exit");
+                log.error("");
+                log.error("Or install manually:");
+                printManualInstallInstructions();
+                throw new IOException("Passwordless sudo is required. Run the setup commands above in WSL.");
+            }
         }
         
         try {
@@ -224,9 +375,6 @@ public class WindowsDockerProvider extends DockerProvider {
         }
     }
 
-    /**
-     * Check if passwordless sudo is available (tests with 'sudo -n true').
-     */
     private boolean checkPasswordlessSudoForApt() {
         try {
             ProcessBuilder pb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c",
@@ -251,6 +399,15 @@ public class WindowsDockerProvider extends DockerProvider {
         }
     }
 
+    private void printSudoersManualInstructions() {
+        log.error("Please run this ONE-TIME setup in WSL ({}):", wslDistro);
+        log.error("");
+        log.error("  wsl -d {}", wslDistro);
+        log.error("  sudo bash -c 'echo \"$USER ALL=(ALL) NOPASSWD: ALL\" > /etc/sudoers.d/nopasswd-$USER'");
+        log.error("  sudo chmod 440 /etc/sudoers.d/nopasswd-$USER");
+        log.error("  exit");
+    }
+
     private void printManualInstallInstructions() {
         log.error("You can install it manually by running these commands in WSL ({}):", wslDistro);
         log.error("  curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg --yes");
@@ -262,11 +419,6 @@ public class WindowsDockerProvider extends DockerProvider {
         log.error("  sudo nvidia-ctk runtime configure --runtime=docker");
     }
 
-    /**
-     * Ensure NVIDIA Container Toolkit is set up for GPU support.
-     * Automatically installs if NVIDIA GPU is detected but toolkit is not installed.
-     * @throws IOException if setup fails
-     */
     public void ensureNvidiaContainerToolkit() throws IOException {
         if (!usingWsl2 || wslDistro == null) {
             log.debug("Not using WSL2, skipping NVIDIA toolkit check");
@@ -287,9 +439,6 @@ public class WindowsDockerProvider extends DockerProvider {
         installNvidiaContainerToolkit();
     }
     
-    /**
-     * Run a WSL command with extended timeout for long-running operations.
-     */
     private String runWslCommandWithTimeout(String command, boolean useSudo, int timeoutSeconds) {
         try {
             String fullCommand = useSudo ? "sudo " + command : command;
@@ -327,6 +476,46 @@ public class WindowsDockerProvider extends DockerProvider {
 
     private void installDockerInWsl2() throws IOException {
         log.info("Docker is not installed in WSL2 (distro: {})", wslDistro);
+
+        if (promptForAutoSetup("Docker needs to be installed in WSL (" + wslDistro + ").\n" +
+                "This will run 'curl -fsSL https://get.docker.com | sh' as root inside WSL\n" +
+                "and add your user to the docker group.")) {
+            log.info("Installing Docker in WSL2 automatically...");
+
+            log.info("Running Docker install script (this may take a few minutes)...");
+            String installResult = runWslCommandAsRoot("curl -fsSL https://get.docker.com | sh 2>&1", 600);
+            log.debug("Docker install result: {}", installResult);
+
+            String wslUser = runWslCommand("whoami", false, 5);
+            if (!wslUser.isEmpty()) {
+                log.info("Adding user '{}' to docker group...", wslUser);
+                String groupResult = runWslCommandAsRoot("usermod -aG docker " + wslUser, 10);
+                log.debug("usermod result: {}", groupResult);
+            }
+
+            ProcessBuilder verifyPb = new ProcessBuilder("wsl", "-d", wslDistro, "-e", "bash", "-c", "command -v dockerd");
+            verifyPb.redirectErrorStream(true);
+            Process verifyProcess = verifyPb.start();
+            byte[] verifyOutput = readAllBytes(verifyProcess.getInputStream());
+            try {
+                verifyProcess.waitFor(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while verifying Docker installation", e);
+            }
+            String verifyStr = new String(verifyOutput).trim();
+
+            if (verifyStr.isEmpty()) {
+                log.error("Automatic Docker installation may have failed. Please check the output above.");
+                log.error("You can also try installing manually:");
+                printDockerManualInstallInstructions();
+                throw new IOException("Docker installation in WSL2 could not be verified.");
+            }
+
+            log.info("Docker installed successfully in WSL2 at: {}", verifyStr);
+            return;
+        }
+
         log.info("");
         log.info("Please install Docker manually in WSL by running these commands:");
         log.info("  wsl -d {}", wslDistro);
@@ -340,6 +529,17 @@ public class WindowsDockerProvider extends DockerProvider {
         log.info("");
         
         throw new RuntimeException("Docker is not installed in WSL2. Please install it manually (see instructions above).");
+    }
+
+    private void printDockerManualInstallInstructions() {
+        log.error("  wsl -d {}", wslDistro);
+        log.error("  curl -fsSL https://get.docker.com | sh");
+        log.error("  sudo usermod -aG docker $USER");
+        log.error("  exit");
+        log.error("");
+        log.error("Then restart WSL:");
+        log.error("  wsl --shutdown");
+        log.error("  wsl -d {}", wslDistro);
     }
 
     private String getArch() {
@@ -402,17 +602,40 @@ public class WindowsDockerProvider extends DockerProvider {
                 usingWsl2 = true;
                 startWsl2Docker();
             } else {
-                log.error("Docker requires either administrator privileges or a usable WSL2 Linux distribution");
+                log.error("Docker requires either administrator privileges or a usable WSL2 Linux distribution.");
                 log.error("You have WSL but only Docker Desktop's internal distros are installed.");
-                log.error("To fix this, install a Linux distribution:");
-                log.error("  1) Open PowerShell as Administrator (one-time setup)");
-                log.error("  2) Run: wsl --install -d Ubuntu");
-                log.error("  3) Complete the Ubuntu setup (create username/password)");
-                log.error("  4) Try running your application again");
-                throw new RuntimeException("Cannot start Docker: no admin privileges and no usable WSL2 Linux distro. " +
-                        "Install Ubuntu with 'wsl --install -d Ubuntu' (requires admin once).");
+
+                if (promptForAutoSetup("A Linux distribution (Ubuntu) needs to be installed in WSL.\n" +
+                        "This requires a one-time administrator elevation (UAC prompt).")) {
+                    log.info("Installing Ubuntu in WSL2 via elevated command...");
+                    boolean success = runElevatedWindowsCommand("wsl", "--install -d Ubuntu", true);
+
+                    if (success) {
+                        log.info("Ubuntu WSL installation started successfully.");
+                        log.info("Please complete the Ubuntu setup (create username/password) when prompted,");
+                        log.info("then run your application again.");
+                        throw new RuntimeException("WSL Ubuntu installed. Please complete setup and restart the application.");
+                    } else {
+                        log.error("Elevated installation was cancelled or failed.");
+                        log.error("You can install it manually:");
+                        printWslInstallManualInstructions();
+                        throw new RuntimeException("Cannot start Docker: WSL Ubuntu installation failed. See instructions above.");
+                    }
+                } else {
+                    log.error("To fix this, install a Linux distribution:");
+                    printWslInstallManualInstructions();
+                    throw new RuntimeException("Cannot start Docker: no admin privileges and no usable WSL2 Linux distro. " +
+                            "Install Ubuntu with 'wsl --install -d Ubuntu' (requires admin once).");
+                }
             }
         }
+    }
+
+    private void printWslInstallManualInstructions() {
+        log.error("  1) Open PowerShell as Administrator (one-time setup)");
+        log.error("  2) Run: wsl --install -d Ubuntu");
+        log.error("  3) Complete the Ubuntu setup (create username/password)");
+        log.error("  4) Try running your application again");
     }
 
     private void startNativeDocker() throws IOException, InterruptedException {
@@ -484,15 +707,31 @@ public class WindowsDockerProvider extends DockerProvider {
         log.info("Starting Docker daemon in WSL2 (instance: {}, distro: {})...", instanceId, wslDistro);
         
         if (!checkPasswordlessSudo()) {
-            log.error("Starting dockerd requires root privileges.");
-            log.error("Please run this ONE-TIME setup in WSL ({}):", wslDistro);
-            log.error("");
-            log.error("  # Allow passwordless sudo for dockerd");
-            log.error("  echo \"$USER ALL=(ALL) NOPASSWD: /usr/bin/dockerd\" | sudo tee /etc/sudoers.d/dockerd");
-            log.error("  sudo chmod 440 /etc/sudoers.d/dockerd");
-            log.error("");
-            throw new RuntimeException("Cannot start Docker in WSL2: dockerd requires root. " +
-                    "Run the setup commands above in WSL (wsl -d " + wslDistro + ").");
+            if (promptForAutoSetup("Starting dockerd requires passwordless sudo for /usr/bin/dockerd.\n" +
+                    "This will add a sudoers rule to allow running dockerd without a password in WSL (" + wslDistro + ").")) {
+                log.info("Configuring passwordless sudo for dockerd in WSL ({})...", wslDistro);
+                String wslUser = runWslCommand("whoami", false, 5);
+                if (wslUser.isEmpty()) {
+                    throw new IOException("Could not determine WSL username.");
+                }
+                String sudoersCmd = String.format(
+                        "echo '%s ALL=(ALL) NOPASSWD: /usr/bin/dockerd' > /etc/sudoers.d/dockerd && chmod 440 /etc/sudoers.d/dockerd",
+                        wslUser);
+                String result = runWslCommandAsRoot(sudoersCmd, 10);
+                log.debug("Sudoers configuration result: {}", result);
+
+                if (!checkPasswordlessSudo()) {
+                    log.error("Automatic sudoers configuration failed. Please configure manually.");
+                    printDockerdSudoManualInstructions();
+                    throw new RuntimeException("Cannot start Docker in WSL2: failed to configure passwordless sudo for dockerd.");
+                }
+                log.info("Passwordless sudo for dockerd configured successfully.");
+            } else {
+                log.error("Starting dockerd requires root privileges.");
+                printDockerdSudoManualInstructions();
+                throw new RuntimeException("Cannot start Docker in WSL2: dockerd requires root. " +
+                        "Run the setup commands above in WSL (wsl -d " + wslDistro + ").");
+            }
         }
         
         log.debug("Passwordless sudo for dockerd is available");
@@ -591,6 +830,15 @@ public class WindowsDockerProvider extends DockerProvider {
         }
         
         log.info("Docker daemon started in WSL2 (instance: {}, port: {})", instanceId, dockerPort);
+    }
+
+    private void printDockerdSudoManualInstructions() {
+        log.error("Please run this ONE-TIME setup in WSL ({}):", wslDistro);
+        log.error("");
+        log.error("  # Allow passwordless sudo for dockerd");
+        log.error("  echo \"$USER ALL=(ALL) NOPASSWD: /usr/bin/dockerd\" | sudo tee /etc/sudoers.d/dockerd");
+        log.error("  sudo chmod 440 /etc/sudoers.d/dockerd");
+        log.error("");
     }
     
     /**
@@ -761,9 +1009,6 @@ public class WindowsDockerProvider extends DockerProvider {
         }
     }
     
-    /**
-     * Run a command in WSL.
-     */
     private String runWslCommand(String command, boolean useSudo, int timeoutSeconds) {
         try {
             String fullCommand = useSudo ? "sudo " + command : command;

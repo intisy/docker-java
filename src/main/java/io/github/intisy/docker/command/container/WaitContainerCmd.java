@@ -9,8 +9,6 @@ import io.github.intisy.docker.transport.DockerResponse;
 import java.io.IOException;
 
 /**
- * Command to wait for a container to exit.
- *
  * @author Finn Birich
  */
 public class WaitContainerCmd {
@@ -25,15 +23,15 @@ public class WaitContainerCmd {
 
     /**
      * Wait condition: 'not-running' (default), 'next-exit', or 'removed'.
+      *
+      * @param condition the wait condition
+      * @return this command instance
      */
     public WaitContainerCmd withCondition(String condition) {
         this.condition = condition;
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public WaitResponse exec() {
         try {
             String path = "/containers/" + containerId + "/wait";

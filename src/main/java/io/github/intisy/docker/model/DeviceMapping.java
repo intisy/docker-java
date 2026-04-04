@@ -3,8 +3,6 @@ package io.github.intisy.docker.model;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * Represents a device mapping from host to container.
- *
  * @author Finn Birich
  */
 public class DeviceMapping {
@@ -28,6 +26,10 @@ public class DeviceMapping {
 
     /**
      * Create a device mapping with read-write-mknod permissions.
+      *
+      * @param pathOnHost the device path on the host
+      * @param pathInContainer the device path in the container
+      * @return the device mapping
      */
     public static DeviceMapping of(String pathOnHost, String pathInContainer) {
         return new DeviceMapping(pathOnHost, pathInContainer, "rwm");

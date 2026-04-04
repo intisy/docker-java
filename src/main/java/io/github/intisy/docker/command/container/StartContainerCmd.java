@@ -9,8 +9,6 @@ import io.github.intisy.docker.transport.DockerResponse;
 import java.io.IOException;
 
 /**
- * Command to start a container.
- *
  * @author Finn Birich
  */
 public class StartContainerCmd {
@@ -23,17 +21,11 @@ public class StartContainerCmd {
         this.containerId = containerId;
     }
 
-    /**
-     * Set detach keys.
-     */
     public StartContainerCmd withDetachKeys(String detachKeys) {
         this.detachKeys = detachKeys;
         return this;
     }
 
-    /**
-     * Execute the command.
-     */
     public void exec() {
         try {
             String path = "/containers/" + containerId + "/start";

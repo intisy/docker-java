@@ -12,8 +12,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Command to list volumes.
- *
  * @author Finn Birich
  */
 public class ListVolumesCmd {
@@ -24,9 +22,6 @@ public class ListVolumesCmd {
         this.client = client;
     }
 
-    /**
-     * Add a filter.
-     */
     public ListVolumesCmd withFilter(String key, String... values) {
         if (this.filters == null) {
             this.filters = new HashMap<>();
@@ -35,37 +30,22 @@ public class ListVolumesCmd {
         return this;
     }
 
-    /**
-     * Filter by dangling status.
-     */
     public ListVolumesCmd withDanglingFilter(boolean dangling) {
         return withFilter("dangling", String.valueOf(dangling));
     }
 
-    /**
-     * Filter by driver.
-     */
     public ListVolumesCmd withDriverFilter(String driver) {
         return withFilter("driver", driver);
     }
 
-    /**
-     * Filter by label.
-     */
     public ListVolumesCmd withLabelFilter(String label) {
         return withFilter("label", label);
     }
 
-    /**
-     * Filter by name.
-     */
     public ListVolumesCmd withNameFilter(String name) {
         return withFilter("name", name);
     }
 
-    /**
-     * Execute the command.
-     */
     public VolumesResponse exec() {
         try {
             Map<String, String> queryParams = new HashMap<>();
@@ -85,9 +65,6 @@ public class ListVolumesCmd {
         }
     }
 
-    /**
-     * Response containing list of volumes.
-     */
     public static class VolumesResponse {
         @SerializedName("Volumes")
         private List<Volume> volumes;

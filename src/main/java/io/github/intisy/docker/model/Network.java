@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Represents a Docker network.
- *
  * @author Finn Birich
  */
 public class Network {
@@ -102,9 +100,6 @@ public class Network {
         return labels;
     }
 
-    /**
-     * IPAM configuration for a network.
-     */
     public static class IPAM {
         @SerializedName("Driver")
         private String driver;
@@ -128,9 +123,6 @@ public class Network {
         }
     }
 
-    /**
-     * IPAM configuration entry.
-     */
     public static class IPAMConfig {
         @SerializedName("Subnet")
         private String subnet;
@@ -161,9 +153,6 @@ public class Network {
         }
     }
 
-    /**
-     * Container connected to a network.
-     */
     public static class NetworkContainer {
         @SerializedName("Name")
         private String name;
