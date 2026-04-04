@@ -1,6 +1,7 @@
 package io.github.intisy.docker;
 
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -9,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @author Finn Birich
  */
+@Tag("unit")
 public class DockerClientBuilderTest {
 
     @Test

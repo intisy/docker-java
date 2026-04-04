@@ -2,6 +2,7 @@ package io.github.intisy.docker;
 
 import io.github.intisy.docker.model.CreateContainerResponse;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,6 +17,7 @@ import static org.junit.jupiter.api.Assumptions.*;
  *
  * @author Finn Birich
  */
+@Tag("integration")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class NvidiaToolkitTest {
     private static final Logger log = LoggerFactory.getLogger(NvidiaToolkitTest.class);

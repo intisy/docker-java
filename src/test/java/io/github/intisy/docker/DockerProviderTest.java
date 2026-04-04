@@ -1,6 +1,7 @@
 package io.github.intisy.docker;
 
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Tag;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -12,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @author Finn Birich
  */
+@Tag("unit")
 public class DockerProviderTest {
 
     @AfterEach

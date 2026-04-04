@@ -24,7 +24,7 @@ jobs:
         if: matrix.os != 'windows-latest'
       
       - name: Run unit tests
-        run: ./gradlew test --tests "io.github.intisy.docker.DockerProviderTest" --tests "io.github.intisy.docker.DockerClientBuilderTest" --tests "io.github.intisy.docker.ModelTest" --info
+        run: ./gradlew ciTest --info
         shell: bash
 
   build:
