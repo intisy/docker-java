@@ -1,5 +1,7 @@
-package io.github.intisy.docker;
+package io.github.intisy.docker.integration;
 
+import io.github.intisy.docker.DockerClient;
+import io.github.intisy.docker.DockerProvider;
 import io.github.intisy.docker.command.network.CreateNetworkCmd;
 import io.github.intisy.docker.command.volume.ListVolumesCmd;
 import io.github.intisy.docker.WindowsDockerProvider;

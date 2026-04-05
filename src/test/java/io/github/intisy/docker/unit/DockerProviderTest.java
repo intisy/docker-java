@@ -1,5 +1,9 @@
-package io.github.intisy.docker;
+package io.github.intisy.docker.unit;
 
+import io.github.intisy.docker.DockerProvider;
+import io.github.intisy.docker.LinuxDockerProvider;
+import io.github.intisy.docker.MacDockerProvider;
+import io.github.intisy.docker.WindowsDockerProvider;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.Tag;
 
