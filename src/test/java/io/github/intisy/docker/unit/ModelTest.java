@@ -1,4 +1,4 @@
-package io.github.intisy.docker;
+package io.github.intisy.docker.unit;
 
 import io.github.intisy.docker.model.*;
 import org.junit.jupiter.api.*;

@@ -1,5 +1,7 @@
-package io.github.intisy.docker;
+package io.github.intisy.docker.integration;
 
+import io.github.intisy.docker.DockerClient;
+import io.github.intisy.docker.WindowsDockerProvider;
 import io.github.intisy.docker.model.CreateContainerResponse;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.Tag;

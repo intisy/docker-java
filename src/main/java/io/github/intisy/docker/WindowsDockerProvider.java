@@ -741,8 +741,9 @@ public class WindowsDockerProvider extends DockerProvider {
         
         String isolationFlags = "";
         if (otherDockerdRunning) {
-            log.info("Another Docker daemon detected, using isolation flags to avoid conflicts");
-            isolationFlags = " --iptables=false";
+            int subnetId = 18 + Math.abs(instanceId.hashCode() % 14);
+            log.info("Another Docker daemon detected, using isolated subnet 172.{}.0.0/16", subnetId);
+            isolationFlags = " --bip=172." + subnetId + ".0.1/16";
         }
         
         log.debug("Starting dockerd directly...");
