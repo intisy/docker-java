@@ -19,7 +19,7 @@ github {
 }
 
 publishGithub {
-    releaseName = "Release ${project.version}"
+    releaseName = "Release ${project.findProperty('artifact_version') ?: project.version}"
     artifacts {
         artifact {
             classifier = ""
