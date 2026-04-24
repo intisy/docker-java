@@ -2,7 +2,7 @@ plugins {
     id "java-library"
     id "com.github.johnrengelman.shadow" version "8.1.1"
     id "io.github.intisy.online-gradle" version "1.7.2"
-    id "io.github.intisy.github-gradle" version "1.8.1.1"
+    id "io.github.intisy.github-gradle" version "1.8.2"
 }
 
 online {
@@ -16,6 +16,20 @@ online {
 
 github {
     accessToken = System.getenv("GITHUB_TOKEN") ?: ""
+}
+
+publishGithub {
+    releaseName = "Release ${project.version}"
+    artifacts {
+        artifact {
+            classifier = ""
+            jar = file("build/libs/docker-java.jar")
+        }
+        artifact {
+            classifier = "standalone"
+            jar = file("build/libs/docker-java-standalone.jar")
+        }
+    }
 }
 
 repositories {
