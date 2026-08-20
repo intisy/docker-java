@@ -1,6 +1,13 @@
 name: Build And Upload
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and release; empty takes the ref the run was started from'
+        required: false
+        type: string
+        default: ''
   push:
     tags:
       - "*"
@@ -9,7 +16,7 @@ jobs:
   call-reusable-workflow:
     uses: intisy/workflows/.github/workflows/build.yml@main
     with:
-      ref_name: ${{ github.ref_name }}
+      ref_name: ${{ inputs.tag || github.ref_name }}
       java_version: '8'
       jdk_distribution: temurin
       publish_task: publishGithub
