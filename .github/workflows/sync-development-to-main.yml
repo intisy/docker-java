@@ -10,32 +10,7 @@ permissions:
 
 jobs:
   merge:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Fetch and Checkout Main
-        run: |
-          git fetch origin
-          git checkout main
-
-      - name: Merge Development into Main
-        run: |
-          if ! git merge --no-ff development -m "Automated merge from development to main"; then
-            echo "Merge conflict detected, auto-resolving README.md..."
-            git checkout main -- README.md 2>/dev/null || git rm README.md 2>/dev/null || true
-            git add -A
-            git commit --no-edit
-          fi
-
-      - name: Push Changes
-        run: git push origin main
+    uses: intisy/workflows/.github/workflows/merge.yml@main
+    with:
+      source: development
+      target: main
