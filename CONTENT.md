@@ -1,0 +1,14 @@
+```
+DockerProvider dockerProvider = DockerProvider.get();
+dockerProvider.ensureInstalled();
+dockerProvider.start();
+DockerClient dockerClient = dockerProvider.getClient();
+```
+
+Currently supported setups:
+  * [x] - Linux root
+  * [x] - Linux rootless
+  * [x] - Windows Administrator 
+  * [x] - Windows non-Administrator 
+  * [x] - macOS root 
+  * [x] - macOS rootless
