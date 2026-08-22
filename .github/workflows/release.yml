@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and publish; empty takes the ref the run was started from'
+        required: false
+        type: string
+        default: ''
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  test:
+    uses: intisy/workflows/.github/workflows/test.yml@main
+    with:
+      ref: ${{ inputs.tag }}
+      java_version: '11'
+      runners: '["ubuntu-latest", "macos-latest", "windows-latest"]'
+      gradle_test: ciTest
+      gradle_args: --no-daemon --info
+    secrets:
+      envPAT: ${{ secrets.PAT }}
+
+  publish:
+    needs: test
+    uses: intisy/workflows/.github/workflows/publish.yml@main
+    with:
+      tag: ${{ inputs.tag }}
+      # maven is not detectable here: the maven-publish plugin arrives through a remote preset
+      # fetched at build time, so nothing in the checked-in build script names it.
+      targets: 'github-gradle maven'
+      java_version: '8'
+      publish_task: publishGithub
+    secrets:
+      envPAT: ${{ secrets.PAT }}
