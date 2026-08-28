@@ -39,9 +39,8 @@ public final class WindowsFeatures {
 
     /**
      * Whether the given Windows optional feature is enabled.
-     *
-     * @implNote {@code Get-WindowsOptionalFeature -Online} itself requires elevation,
-     * so in a non-elevated process this returns false even for enabled features; use
+     * {@code Get-WindowsOptionalFeature -Online} itself requires elevation, so in a
+     * non-elevated process this returns false even for enabled features; use
      * {@link #isServiceInstalled} with a witness service for a non-elevated probe.
      */
     public static boolean isEnabled(String featureName) {
