@@ -156,39 +156,6 @@ public class WindowsDockerProvider extends DockerProvider {
         }
     }
 
-    /**
-     * Run a Windows command with UAC elevation (administrator prompt).
-     * Uses PowerShell {@code Start-Process -Verb RunAs} to trigger the UAC dialog.
-     *
-     * @param command    The executable to run elevated
-     * @param arguments  Arguments for the command
-     * @param waitForExit Whether to wait for the elevated process to complete
-     * @return true if the elevated process was started (and completed successfully if waitForExit)
-     */
-    private boolean runElevatedWindowsCommand(String command, String arguments, boolean waitForExit) {
-        try {
-            String psCommand = String.format(
-                    "Start-Process '%s' -ArgumentList '%s' -Verb RunAs%s",
-                    command, arguments, waitForExit ? " -Wait" : "");
-
-            ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-Command", psCommand);
-            pb.redirectErrorStream(true);
-            Process process = pb.start();
-            byte[] output = readAllBytes(process.getInputStream());
-            int exitCode = process.waitFor();
-
-            String outputStr = new String(output).trim();
-            if (!outputStr.isEmpty()) {
-                log.debug("Elevated command output: {}", outputStr);
-            }
-
-            return exitCode == 0;
-        } catch (IOException | InterruptedException e) {
-            log.warn("Failed to run elevated command: {}", e.getMessage());
-            return false;
-        }
-    }
-
     @Override
     public String getInstanceId() {
         return instanceId;
@@ -585,12 +552,12 @@ public class WindowsDockerProvider extends DockerProvider {
     public void start() throws IOException, InterruptedException {
         log.info("Starting Docker (instance: {})...", instanceId);
         
-        boolean isAdmin = isAdministrator();
+        boolean isAdmin = WindowsElevation.isAdministrator();
         log.debug("Administrator check result: {}", isAdmin);
-        
+
         if (isAdmin) {
             log.info("Running with administrator privileges. Using native Windows Docker");
-            ensureContainersFeatureEnabled();
+            WindowsFeatures.ensureEnabled(WindowsFeatures.CONTAINERS);
             startNativeDocker();
         } else {
             log.info("Not running as administrator. Checking for WSL2...");
@@ -603,29 +570,28 @@ public class WindowsDockerProvider extends DockerProvider {
                 startWsl2Docker();
             } else {
                 log.error("Docker requires either administrator privileges or a usable WSL2 Linux distribution.");
-                log.error("You have WSL but only Docker Desktop's internal distros are installed.");
+                log.error("No usable WSL2 Linux distribution was found (WSL is missing, or only Docker Desktop's internal distros exist).");
 
-                if (promptForAutoSetup("A Linux distribution (Ubuntu) needs to be installed in WSL.\n" +
-                        "This requires a one-time administrator elevation (UAC prompt).")) {
-                    log.info("Installing Ubuntu in WSL2 via elevated command...");
-                    boolean success = runElevatedWindowsCommand("wsl", "--install -d Ubuntu", true);
-
-                    if (success) {
-                        log.info("Ubuntu WSL installation started successfully.");
-                        log.info("Please complete the Ubuntu setup (create username/password) when prompted,");
-                        log.info("then run your application again.");
-                        throw new RuntimeException("WSL Ubuntu installed. Please complete setup and restart the application.");
-                    } else {
-                        log.error("Elevated installation was cancelled or failed.");
-                        log.error("You can install it manually:");
-                        printWslInstallManualInstructions();
-                        throw new RuntimeException("Cannot start Docker: WSL Ubuntu installation failed. See instructions above.");
-                    }
-                } else {
+                if ("false".equals(System.getProperty("docker.auto.setup"))) {
                     log.error("To fix this, install a Linux distribution:");
                     printWslInstallManualInstructions();
                     throw new RuntimeException("Cannot start Docker: no admin privileges and no usable WSL2 Linux distro. " +
                             "Install Ubuntu with 'wsl --install -d Ubuntu' (requires admin once).");
+                }
+
+                log.info("Installing Ubuntu in WSL. Opening the Windows elevation prompt...");
+                int exitCode = WindowsElevation.runElevated("wsl --install -d Ubuntu");
+
+                if (exitCode == 0) {
+                    log.info("Ubuntu WSL installation started successfully.");
+                    log.info("Please complete the Ubuntu setup (create username/password) when prompted,");
+                    log.info("then run your application again.");
+                    throw new RuntimeException("WSL Ubuntu installed. Please complete setup and restart the application.");
+                } else {
+                    log.error("The elevation prompt was declined or the installation failed.");
+                    log.error("You can install it manually:");
+                    printWslInstallManualInstructions();
+                    throw new RuntimeException("Cannot start Docker: WSL Ubuntu installation failed. See instructions above.");
                 }
             }
         }
@@ -1022,47 +988,6 @@ public class WindowsDockerProvider extends DockerProvider {
         } catch (IOException | InterruptedException e) {
             log.debug("WSL command failed: {}", e.getMessage());
             return "";
-        }
-    }
-
-    private void ensureContainersFeatureEnabled() throws IOException, InterruptedException {
-        ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-Command", "Get-WindowsOptionalFeature -Online -FeatureName Containers");
-        pb.redirectErrorStream(true);
-        Process process = pb.start();
-        
-        StringBuilder output = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
-            }
-        }
-        
-        process.waitFor();
-        String outputStr = output.toString();
-
-        if (!outputStr.contains("State            : Enabled")) {
-            log.info("Enabling Windows Containers feature (requires reboot)...");
-            ProcessBuilder enablePb = new ProcessBuilder("powershell.exe", "-Command", "Enable-WindowsOptionalFeature -Online -FeatureName Containers -All");
-            enablePb.inheritIO();
-            Process enableProcess = enablePb.start();
-            enableProcess.waitFor();
-            throw new RuntimeException("Windows Containers feature enabled. Reboot required.");
-        }
-    }
-
-    private boolean isAdministrator() {
-        try {
-            ProcessBuilder pb = new ProcessBuilder("net", "session");
-            pb.redirectErrorStream(true);
-            Process process = pb.start();
-            byte[] output = readAllBytes(process.getInputStream());
-            int exitCode = process.waitFor();
-            log.debug("Admin check (net session) exit code: {}", exitCode);
-            return exitCode == 0;
-        } catch (IOException | InterruptedException e) {
-            log.debug("Admin check failed with exception: {}", e.getMessage());
-            return false;
         }
     }
 
