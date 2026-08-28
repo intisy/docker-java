@@ -31,9 +31,7 @@ public final class WindowsElevation {
 
     /**
      * Whether the current process runs with administrator privileges.
-     *
-     * @implNote {@code net session} succeeds only in an elevated context; this is the
-     * same probe both libraries previously carried as private copies.
+     * Probes with {@code net session}, which succeeds only in an elevated context.
      */
     public static boolean isAdministrator() {
         try {
@@ -51,11 +49,12 @@ public final class WindowsElevation {
      * elevation (UAC) dialog when the current process is not elevated.
      * Blocks until the elevated process exits and returns its exit code.
      *
+     * The script travels as {@code -EncodedCommand} (Base64 UTF-16LE), so no quoting
+     * or escaping of the script content is ever needed.
+     *
      * @param powershellScript script to execute elevated; its {@code exit} code is propagated
      * @return the elevated script's exit code; a declined UAC dialog yields a non-zero
      *         code from the launcher, {@link #EXIT_LAUNCH_FAILED} if nothing could be started
-     * @implNote the script travels as {@code -EncodedCommand} (Base64 UTF-16LE), so no
-     * quoting or escaping of the script content is ever needed
      */
     public static int runElevated(String powershellScript) {
         String launcher = launcherCommand(toEncodedCommand(powershellScript));
