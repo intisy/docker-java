@@ -1,0 +1,140 @@
+package io.github.intisy.docker.unit;
+
+import io.github.intisy.docker.registry.Digests;
+import io.github.intisy.docker.registry.Layer;
+import io.github.intisy.docker.registry.LayerBuilder;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.zip.GZIPInputStream;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@Tag("unit")
+public class LayerBuilderTest {
+
+    private static Path launcherLikeTree(Path root) throws IOException {
+        Path dist = root.resolve("dist");
+        Files.createDirectories(dist.resolve("bin"));
+        Files.createDirectories(dist.resolve("lib"));
+        Files.write(dist.resolve("bin/launcher"), "#!/bin/sh\nexec java -cp ...\n".getBytes(StandardCharsets.UTF_8));
+        Files.write(dist.resolve("bin/launcher.bat"), "@echo off\n".getBytes(StandardCharsets.UTF_8));
+        Files.write(dist.resolve("lib/launcher.jar"), new byte[] {0x50, 0x4b, 0x03, 0x04});
+        return dist;
+    }
+
+    @Test
+    public void entriesAreRootedAtThePathInImage(@TempDir Path tmp) throws IOException {
+        Layer layer = LayerBuilder.fromDirectory(
+                launcherLikeTree(tmp), "/opt/spisor/launcher", tmp.resolve("layer.tar.gz"));
+
+        List<String> names = entryNames(layer.file());
+        assertTrue(names.contains("opt/spisor/launcher/bin/launcher"), names.toString());
+        assertTrue(names.contains("opt/spisor/launcher/lib/launcher.jar"), names.toString());
+    }
+
+    @Test
+    public void filesUnderBinAreExecutableAndOthersAreNot(@TempDir Path tmp) throws IOException {
+        Layer layer = LayerBuilder.fromDirectory(
+                launcherLikeTree(tmp), "/opt/spisor/launcher", tmp.resolve("layer.tar.gz"));
+
+        assertEquals(0755, modeOf(layer.file(), "opt/spisor/launcher/bin/launcher"));
+        assertEquals(0644, modeOf(layer.file(), "opt/spisor/launcher/lib/launcher.jar"));
+    }
+
+    @Test
+    public void twoBuildsOfTheSameTreeProduceTheSameDigest(@TempDir Path tmp) throws IOException {
+        Path source = launcherLikeTree(tmp);
+        Layer first = LayerBuilder.fromDirectory(source, "/opt/spisor/launcher", tmp.resolve("a.tar.gz"));
+        Layer second = LayerBuilder.fromDirectory(source, "/opt/spisor/launcher", tmp.resolve("b.tar.gz"));
+
+        assertEquals(first.diffId(), second.diffId());
+        assertEquals(first.digest(), second.digest());
+    }
+
+    @Test
+    public void changingAFileChangesTheDigest(@TempDir Path tmp) throws IOException {
+        Path source = launcherLikeTree(tmp);
+        Layer before = LayerBuilder.fromDirectory(source, "/opt/spisor/launcher", tmp.resolve("a.tar.gz"));
+        Files.write(source.resolve("lib/launcher.jar"), new byte[] {0x50, 0x4b, 0x03, 0x05});
+        Layer after = LayerBuilder.fromDirectory(source, "/opt/spisor/launcher", tmp.resolve("b.tar.gz"));
+
+        assertNotEquals(before.diffId(), after.diffId());
+    }
+
+    /**
+     * The diff id is the digest of the uncompressed tar and the digest is the digest of the gzip.
+     * Conflating them produces a config whose rootfs entry no layer can satisfy, and the registry
+     * accepts the push and the node then fails to unpack.
+     */
+    @Test
+    public void diffIdIsTheUncompressedDigestAndDigestIsTheCompressedOne(@TempDir Path tmp) throws IOException {
+        Layer layer = LayerBuilder.fromDirectory(
+                launcherLikeTree(tmp), "/opt/spisor/launcher", tmp.resolve("layer.tar.gz"));
+
+        assertNotEquals(layer.diffId(), layer.digest());
+        assertEquals(layer.digest(), sha256Closing(new FileInputStream(layer.file().toFile())));
+        assertEquals(layer.diffId(),
+                sha256Closing(new GZIPInputStream(new FileInputStream(layer.file().toFile()))));
+        assertEquals(Files.size(layer.file()), layer.size());
+    }
+
+    /**
+     * @implNote {@link Digests#sha256(InputStream)} does not close its argument; on Windows a
+     * lingering open handle on the layer file blocks {@code @TempDir} cleanup after the test.
+     */
+    private static String sha256Closing(InputStream stream) throws IOException {
+        try {
+            return Digests.sha256(stream);
+        } finally {
+            stream.close();
+        }
+    }
+
+    private static List<String> entryNames(Path archive) throws IOException {
+        List<String> names = new ArrayList<String>();
+        TarArchiveInputStream tar = openTar(archive);
+        try {
+            TarArchiveEntry entry;
+            while ((entry = tar.getNextTarEntry()) != null) {
+                names.add(entry.getName());
+            }
+        } finally {
+            tar.close();
+        }
+        return names;
+    }
+
+    private static int modeOf(Path archive, String name) throws IOException {
+        TarArchiveInputStream tar = openTar(archive);
+        try {
+            TarArchiveEntry entry;
+            while ((entry = tar.getNextTarEntry()) != null) {
+                if (name.equals(entry.getName())) {
+                    return entry.getMode() & 0777;
+                }
+            }
+        } finally {
+            tar.close();
+        }
+        throw new IOException("no entry " + name + " in " + archive);
+    }
+
+    private static TarArchiveInputStream openTar(Path archive) throws IOException {
+        InputStream raw = new FileInputStream(archive.toFile());
+        return new TarArchiveInputStream(new GZIPInputStream(raw));
+    }
+}
