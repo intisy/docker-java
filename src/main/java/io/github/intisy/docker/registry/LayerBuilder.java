@@ -14,6 +14,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
@@ -32,7 +33,7 @@ public final class LayerBuilder {
     private static final int DIRECTORY_MODE = 0755;
     private static final int BUFFER_BYTES = 64 * 1024;
 
-    public static Layer fromDirectory(Path source, String pathInImage, Path outputFile) throws IOException {
+    public static Layer fromDirectory(final Path source, String pathInImage, Path outputFile) throws IOException {
         final List<Path> files = new ArrayList<Path>();
         Files.walkFileTree(source, new SimpleFileVisitor<Path>() {
             @Override
@@ -41,7 +42,12 @@ public final class LayerBuilder {
                 return FileVisitResult.CONTINUE;
             }
         });
-        Collections.sort(files);
+        Collections.sort(files, new Comparator<Path>() {
+            @Override
+            public int compare(Path a, Path b) {
+                return archiveName(source, a).compareTo(archiveName(source, b));
+            }
+        });
 
         String prefix = pathInImage.startsWith("/") ? pathInImage.substring(1) : pathInImage;
         if (!prefix.endsWith("/")) {
@@ -60,7 +66,7 @@ public final class LayerBuilder {
                 tar.closeArchiveEntry();
             }
             for (Path file : files) {
-                String name = prefix + source.relativize(file).toString().replace('\\', '/');
+                String name = prefix + archiveName(source, file);
                 long size = Files.size(file);
                 TarArchiveEntry entry = new TarArchiveEntry(name);
                 pin(entry, isUnderBin(name) ? EXECUTABLE_MODE : REGULAR_MODE, size);
@@ -83,14 +89,14 @@ public final class LayerBuilder {
      * would be non-executable exactly on the machine this project is developed on.
      */
     static boolean isUnderBin(String nameInArchive) {
-        return nameInArchive.contains("/bin/");
+        return nameInArchive.contains("/bin/") || nameInArchive.startsWith("bin/");
     }
 
     static List<String> directoriesFor(String prefix, Path source, List<Path> files) {
         List<String> directories = new ArrayList<String>();
         java.util.Set<String> seen = new java.util.TreeSet<String>();
         for (Path file : files) {
-            String relative = source.relativize(file).toString().replace('\\', '/');
+            String relative = archiveName(source, file);
             int slash = relative.indexOf('/');
             while (slash >= 0) {
                 seen.add(prefix + relative.substring(0, slash) + "/");
@@ -108,11 +114,22 @@ public final class LayerBuilder {
     }
 
     /**
+     * @implNote {@code Path} natural ordering is case-insensitive on Windows and case-sensitive on
+     * Linux, so sorting by {@code Path} directly would order two names differing only by case
+     * differently depending on the building platform, changing the digest with it. This is the
+     * string that is actually written to the archive, so sorting by it is platform-independent.
+     */
+    static String archiveName(Path source, Path file) {
+        return source.relativize(file).toString().replace('\\', '/');
+    }
+
+    /**
      * @implNote the uid, gid and owner name calls are redundant with commons-compress 1.24.0's own
-     * defaults for the {@code TarArchiveEntry(String)} constructor used above, and are kept
-     * deliberately: the library sources {@code userName} from {@code System.getProperty("user.name")}
-     * on another of its constructor paths, so a future constructor change here would otherwise leak
-     * the building machine's identity into the layer and silently break cross-machine determinism.
+     * defaults for the {@code TarArchiveEntry(String)} constructor used above: it reads
+     * {@code userName} from {@code System.getProperty("user.name")} during construction and resets
+     * it to {@code ""} immediately afterward, in that same overload's own body. The calls stay to
+     * guard against a future change to which constructor is used, which would otherwise leak the
+     * building machine's identity into the layer and silently break cross-machine determinism.
      */
     private static void pin(TarArchiveEntry entry, int mode, long size) {
         entry.setMode((entry.isDirectory() ? TarArchiveEntry.DEFAULT_DIR_MODE : 0) | mode);

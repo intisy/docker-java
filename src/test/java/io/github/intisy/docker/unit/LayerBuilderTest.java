@@ -99,7 +99,7 @@ public class LayerBuilderTest {
      * is pinned at all.
      */
     @Test
-    void everyEntryHasItsVaryingMetadataPinned(@TempDir Path tmp) throws IOException {
+    public void everyEntryHasItsVaryingMetadataPinned(@TempDir Path tmp) throws IOException {
         Layer layer = LayerBuilder.fromDirectory(
                 launcherLikeTree(tmp), "/opt/spisor/launcher", tmp.resolve("layer.tar.gz"));
 
@@ -119,6 +119,29 @@ public class LayerBuilderTest {
         } finally {
             tar.close();
         }
+    }
+
+    /**
+     * {@code java.nio.file.Path} natural ordering is case-insensitive on Windows and
+     * case-sensitive on Linux, so sorting {@code Path} objects directly would order these two
+     * files differently depending on which platform built the layer, changing the digest with it.
+     * The archive must order entries by the normalized name string instead, which is what actually
+     * gets written and is platform-independent.
+     */
+    @Test
+    public void entriesAreOrderedByTheArchiveNameNotThePlatformPathOrdering(@TempDir Path tmp) throws IOException {
+        Path dist = tmp.resolve("dist");
+        Files.createDirectories(dist);
+        Files.write(dist.resolve("Zeta.txt"), new byte[] {1});
+        Files.write(dist.resolve("apple.txt"), new byte[] {1});
+
+        Layer layer = LayerBuilder.fromDirectory(dist, "/opt/spisor/launcher", tmp.resolve("layer.tar.gz"));
+
+        List<String> names = entryNames(layer.file());
+        int zeta = names.indexOf("opt/spisor/launcher/Zeta.txt");
+        int apple = names.indexOf("opt/spisor/launcher/apple.txt");
+        assertTrue(zeta >= 0 && apple >= 0, names.toString());
+        assertEquals("Zeta.txt".compareTo("apple.txt") < 0, zeta < apple, names.toString());
     }
 
     /**
