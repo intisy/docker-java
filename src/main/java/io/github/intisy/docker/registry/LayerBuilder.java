@@ -20,10 +20,9 @@ import java.util.zip.GZIPOutputStream;
 
 /**
  * Turns a directory into one gzipped tar layer.
- *
- * @implNote every field that could vary between two builds of the same tree is pinned: entries are
- * sorted, modification times are zero, and uid and gid are zero with no owner names. Without that
- * the digest changes on every build and the node re-pulls a layer whose content is identical.
+ * Every field that could vary between two builds of the same tree is pinned: entries are sorted, modification
+ * times are zero, and uid and gid are zero with no owner names. Without that the digest changes on every
+ * build and the node re-pulls a layer whose content is identical.
  *
  * @author Finn Birich
  */
@@ -84,9 +83,9 @@ public final class LayerBuilder {
     }
 
     /**
-     * @implNote a rule, not an inspection: Windows cannot report the POSIX executable bit, so
-     * reading it would make the layer depend on which machine built it, and the launcher script
-     * would be non-executable exactly on the machine this project is developed on.
+     * A rule, not an inspection: Windows cannot report the POSIX executable bit, so reading it would make the
+     * layer depend on which machine built it, and the launcher script would be non-executable exactly on the
+     * machine this project is developed on.
      */
     static boolean isUnderBin(String nameInArchive) {
         return nameInArchive.contains("/bin/") || nameInArchive.startsWith("bin/");
@@ -114,22 +113,22 @@ public final class LayerBuilder {
     }
 
     /**
-     * @implNote {@code Path} natural ordering is case-insensitive on Windows and case-sensitive on
-     * Linux, so sorting by {@code Path} directly would order two names differing only by case
-     * differently depending on the building platform, changing the digest with it. This is the
-     * string that is actually written to the archive, so sorting by it is platform-independent.
+     * {@code Path} natural ordering is case-insensitive on Windows and case-sensitive on Linux, so sorting by
+     * {@code Path} directly would order two names differing only by case differently depending on the
+     * building platform, changing the digest with it. This is the string that is actually written to the
+     * archive, so sorting by it is platform-independent.
      */
     static String archiveName(Path source, Path file) {
         return source.relativize(file).toString().replace('\\', '/');
     }
 
     /**
-     * @implNote the uid, gid and owner name calls are redundant with commons-compress 1.24.0's own
-     * defaults for the {@code TarArchiveEntry(String)} constructor used above: it reads
-     * {@code userName} from {@code System.getProperty("user.name")} during construction and resets
-     * it to {@code ""} immediately afterward, in that same overload's own body. The calls stay to
-     * guard against a future change to which constructor is used, which would otherwise leak the
-     * building machine's identity into the layer and silently break cross-machine determinism.
+     * The uid, gid and owner name calls are redundant with commons-compress 1.24.0's own defaults for the
+     * {@code TarArchiveEntry(String)} constructor used above: it reads {@code userName} from
+     * {@code System.getProperty("user.name")} during construction and resets it to {@code ""} immediately
+     * afterward, in that same overload's own body. The calls stay to guard against a future change to which
+     * constructor is used, which would otherwise leak the building machine's identity into the layer and
+     * silently break cross-machine determinism.
      */
     private static void pin(TarArchiveEntry entry, int mode, long size) {
         entry.setMode((entry.isDirectory() ? TarArchiveEntry.DEFAULT_DIR_MODE : 0) | mode);

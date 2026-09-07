@@ -41,9 +41,9 @@ public final class ImagePublisher {
     }
 
     /**
-     * @implNote a base image is normally published as a multi-architecture index, so the first read
-     * yields the index and the platform manifest needs a second read by digest. A base that is
-     * already a single manifest skips straight through.
+     * A base image is normally published as a multi-architecture index, so the first read yields the index
+     * and the platform manifest needs a second read by digest. A base that is already a single manifest skips
+     * straight through.
      */
     private static RegistryClient.Manifest resolveToPlatformManifest(RegistryClient source, ImageReference base)
             throws IOException {
