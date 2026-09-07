@@ -79,6 +79,20 @@ public class ImageAssemblerTest {
     }
 
     @Test
+    public void notCallingWithCmdLeavesTheBaseCmdInPlace() throws IOException {
+        ImageConfigOverrides overrides = new ImageConfigOverrides()
+                .withEntrypoint(Arrays.asList("/opt/spisor/launcher/bin/launcher"))
+                .withWorkingDir("/var/lib/spisor");
+
+        JsonObject config = GSON.fromJson(
+                ImageAssembler.append(fixture("base-config.json"), fixture("base-manifest.json"),
+                        layer(), overrides).configJson(),
+                JsonObject.class).getAsJsonObject("config");
+
+        assertEquals("jshell", config.getAsJsonArray("Cmd").get(0).getAsString());
+    }
+
+    @Test
     public void theBaseEnvironmentSurvives() throws IOException {
         JsonObject config = GSON.fromJson(assemble().configJson(), JsonObject.class)
                 .getAsJsonObject("config");
@@ -141,15 +155,46 @@ public class ImageAssemblerTest {
                 manifest.getAsJsonArray("layers").get(2).getAsJsonObject().get("mediaType").getAsString());
     }
 
+    @Test
+    public void aBaseConfigWithNoHistoryArrayGetsOneCreated() throws IOException {
+        String baseConfigWithoutHistory = "{\"architecture\":\"amd64\",\"os\":\"linux\","
+                + "\"config\":{\"Env\":[],\"Cmd\":[\"jshell\"]},"
+                + "\"rootfs\":{\"type\":\"layers\",\"diff_ids\":["
+                + "\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\","
+                + "\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]}}";
+
+        JsonObject config = GSON.fromJson(
+                ImageAssembler.append(baseConfigWithoutHistory, fixture("base-manifest.json"),
+                        layer(), overrides()).configJson(),
+                JsonObject.class);
+
+        assertEquals(1, config.getAsJsonArray("history").size());
+    }
+
+    @Test
+    public void aBaseConfigWithNoInnerConfigObjectGetsOneCreated() throws IOException {
+        String baseConfigWithoutInnerConfig = "{\"architecture\":\"amd64\",\"os\":\"linux\","
+                + "\"rootfs\":{\"type\":\"layers\",\"diff_ids\":["
+                + "\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\","
+                + "\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]}}";
+
+        JsonObject config = GSON.fromJson(
+                ImageAssembler.append(baseConfigWithoutInnerConfig, fixture("base-manifest.json"),
+                        layer(), overrides()).configJson(),
+                JsonObject.class).getAsJsonObject("config");
+
+        assertEquals("/opt/spisor/launcher/bin/launcher", config.getAsJsonArray("Entrypoint").get(0).getAsString());
+    }
+
     private static String fixture(String name) throws IOException {
-        InputStream in = ImageAssemblerTest.class.getResourceAsStream("/registry/" + name);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] buffer = new byte[8192];
-        int read;
-        while ((read = in.read(buffer)) != -1) {
-            out.write(buffer, 0, read);
+        try (InputStream in = ImageAssemblerTest.class.getResourceAsStream("/registry/" + name)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
         }
-        in.close();
         return new String(out.toByteArray(), StandardCharsets.UTF_8);
     }
 }

@@ -5,9 +5,12 @@ import java.util.List;
 /**
  * What to stamp into the assembled image's config.
  *
- * @implNote a null entrypoint or cmd means "leave the base value alone"; an empty list means
- * "clear it". The difference matters: a base JRE image ships a Cmd that must be cleared or the
- * container runs that instead of ours.
+ * @implNote {@code cmd} is three-state: never calling {@code withCmd} leaves the base Cmd alone;
+ * {@code withCmd(null)} removes it; {@code withCmd(list)}, empty list included, replaces it. This
+ * matters because a base JRE image ships a Cmd that must be removed, via {@code withCmd(null)},
+ * or the container runs that instead of ours. {@code entrypoint} is only two-state: never calling
+ * {@code withEntrypoint} leaves the base value alone, any list (including empty) replaces it;
+ * there is no way to clear it.
  *
  * @author Finn Birich
  */

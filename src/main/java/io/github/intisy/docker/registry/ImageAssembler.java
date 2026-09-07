@@ -83,7 +83,10 @@ public final class ImageAssembler {
     /**
      * @implNote a docker-schema2 manifest and an OCI manifest use different layer media types, and
      * mixing them in one manifest is rejected. Taking the type from the layers already there keeps
-     * the assembled manifest internally consistent whichever shape the base image used.
+     * the assembled manifest internally consistent whichever shape the base image used. The
+     * {@code OCI_LAYER_GZIP} fallback only applies when the base manifest has no layers at all; a
+     * real base image always has at least one, so this never mixes a Docker manifest with an OCI
+     * layer type in practice.
      */
     private static String layerMediaTypeMatching(JsonObject manifest) {
         JsonArray layers = manifest.getAsJsonArray("layers");
@@ -96,6 +99,12 @@ public final class ImageAssembler {
         return RegistryClient.OCI_LAYER_GZIP;
     }
 
+    /**
+     * @implNote no {@code created} timestamp is written deliberately: a wall-clock value would
+     * change the config bytes, and therefore the config digest and manifest, on every build, so
+     * two builds of identical inputs would push different images. Same determinism property as
+     * why {@link LayerBuilder} pins mtime to zero.
+     */
     private static void addHistory(JsonObject config) {
         JsonArray history = config.getAsJsonArray("history");
         if (history == null) {
