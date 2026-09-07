@@ -1,6 +1,5 @@
-package io.github.intisy.docker.unit;
+package io.github.intisy.docker.registry;
 
-import io.github.intisy.docker.registry.UrlRegistryHttp;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 

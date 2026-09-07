@@ -51,7 +51,7 @@ public final class UrlRegistryHttp implements RegistryHttp {
      * @implNote derives the pull scope from the request path, so that one client can walk several
      * repositories without the caller tracking tokens.
      */
-    public static String scopeFor(String url) {
+    static String scopeFor(String url) {
         int v2 = url.indexOf("/v2/");
         if (v2 < 0) {
             return "";
@@ -88,7 +88,7 @@ public final class UrlRegistryHttp implements RegistryHttp {
      * @implNote a two-field read rather than a gson dependency at this layer, so the transport
      * stays free of any model. The token document has exactly one field this needs.
      */
-    public static String jsonStringField(String json, String field) {
+    static String jsonStringField(String json, String field) {
         String needle = "\"" + field + "\"";
         int at = json.indexOf(needle);
         if (at < 0) {
