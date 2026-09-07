@@ -39,27 +39,27 @@ public class LayerBuilderTest {
     @Test
     public void entriesAreRootedAtThePathInImage(@TempDir Path tmp) throws IOException {
         Layer layer = LayerBuilder.fromDirectory(
-                launcherLikeTree(tmp), "/opt/spisor/launcher", tmp.resolve("layer.tar.gz"));
+                launcherLikeTree(tmp), "/opt/app/launcher", tmp.resolve("layer.tar.gz"));
 
         List<String> names = entryNames(layer.file());
-        assertTrue(names.contains("opt/spisor/launcher/bin/launcher"), names.toString());
-        assertTrue(names.contains("opt/spisor/launcher/lib/launcher.jar"), names.toString());
+        assertTrue(names.contains("opt/app/launcher/bin/launcher"), names.toString());
+        assertTrue(names.contains("opt/app/launcher/lib/launcher.jar"), names.toString());
     }
 
     @Test
     public void filesUnderBinAreExecutableAndOthersAreNot(@TempDir Path tmp) throws IOException {
         Layer layer = LayerBuilder.fromDirectory(
-                launcherLikeTree(tmp), "/opt/spisor/launcher", tmp.resolve("layer.tar.gz"));
+                launcherLikeTree(tmp), "/opt/app/launcher", tmp.resolve("layer.tar.gz"));
 
-        assertEquals(0755, modeOf(layer.file(), "opt/spisor/launcher/bin/launcher"));
-        assertEquals(0644, modeOf(layer.file(), "opt/spisor/launcher/lib/launcher.jar"));
+        assertEquals(0755, modeOf(layer.file(), "opt/app/launcher/bin/launcher"));
+        assertEquals(0644, modeOf(layer.file(), "opt/app/launcher/lib/launcher.jar"));
     }
 
     @Test
     public void twoBuildsOfTheSameTreeProduceTheSameDigest(@TempDir Path tmp) throws IOException {
         Path source = launcherLikeTree(tmp);
-        Layer first = LayerBuilder.fromDirectory(source, "/opt/spisor/launcher", tmp.resolve("a.tar.gz"));
-        Layer second = LayerBuilder.fromDirectory(source, "/opt/spisor/launcher", tmp.resolve("b.tar.gz"));
+        Layer first = LayerBuilder.fromDirectory(source, "/opt/app/launcher", tmp.resolve("a.tar.gz"));
+        Layer second = LayerBuilder.fromDirectory(source, "/opt/app/launcher", tmp.resolve("b.tar.gz"));
 
         assertEquals(first.diffId(), second.diffId());
         assertEquals(first.digest(), second.digest());
@@ -68,9 +68,9 @@ public class LayerBuilderTest {
     @Test
     public void changingAFileChangesTheDigest(@TempDir Path tmp) throws IOException {
         Path source = launcherLikeTree(tmp);
-        Layer before = LayerBuilder.fromDirectory(source, "/opt/spisor/launcher", tmp.resolve("a.tar.gz"));
+        Layer before = LayerBuilder.fromDirectory(source, "/opt/app/launcher", tmp.resolve("a.tar.gz"));
         Files.write(source.resolve("lib/launcher.jar"), new byte[] {0x50, 0x4b, 0x03, 0x05});
-        Layer after = LayerBuilder.fromDirectory(source, "/opt/spisor/launcher", tmp.resolve("b.tar.gz"));
+        Layer after = LayerBuilder.fromDirectory(source, "/opt/app/launcher", tmp.resolve("b.tar.gz"));
 
         assertNotEquals(before.diffId(), after.diffId());
     }
@@ -83,7 +83,7 @@ public class LayerBuilderTest {
     @Test
     public void diffIdIsTheUncompressedDigestAndDigestIsTheCompressedOne(@TempDir Path tmp) throws IOException {
         Layer layer = LayerBuilder.fromDirectory(
-                launcherLikeTree(tmp), "/opt/spisor/launcher", tmp.resolve("layer.tar.gz"));
+                launcherLikeTree(tmp), "/opt/app/launcher", tmp.resolve("layer.tar.gz"));
 
         assertNotEquals(layer.diffId(), layer.digest());
         assertEquals(layer.digest(), sha256Closing(new FileInputStream(layer.file().toFile())));
@@ -101,7 +101,7 @@ public class LayerBuilderTest {
     @Test
     public void everyEntryHasItsVaryingMetadataPinned(@TempDir Path tmp) throws IOException {
         Layer layer = LayerBuilder.fromDirectory(
-                launcherLikeTree(tmp), "/opt/spisor/launcher", tmp.resolve("layer.tar.gz"));
+                launcherLikeTree(tmp), "/opt/app/launcher", tmp.resolve("layer.tar.gz"));
 
         TarArchiveInputStream tar = openTar(layer.file());
         try {
@@ -135,11 +135,11 @@ public class LayerBuilderTest {
         Files.write(dist.resolve("Zeta.txt"), new byte[] {1});
         Files.write(dist.resolve("apple.txt"), new byte[] {1});
 
-        Layer layer = LayerBuilder.fromDirectory(dist, "/opt/spisor/launcher", tmp.resolve("layer.tar.gz"));
+        Layer layer = LayerBuilder.fromDirectory(dist, "/opt/app/launcher", tmp.resolve("layer.tar.gz"));
 
         List<String> names = entryNames(layer.file());
-        int zeta = names.indexOf("opt/spisor/launcher/Zeta.txt");
-        int apple = names.indexOf("opt/spisor/launcher/apple.txt");
+        int zeta = names.indexOf("opt/app/launcher/Zeta.txt");
+        int apple = names.indexOf("opt/app/launcher/apple.txt");
         assertTrue(zeta >= 0 && apple >= 0, names.toString());
         assertEquals("Zeta.txt".compareTo("apple.txt") < 0, zeta < apple, names.toString());
     }

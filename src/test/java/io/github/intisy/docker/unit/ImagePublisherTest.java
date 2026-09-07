@@ -63,7 +63,7 @@ public class ImagePublisherTest {
 
     private RegistryClient target(boolean baseLayerAlreadyPresent) {
         targetHttp = new FakeRegistryHttp();
-        String root = "http://registry.spisor.internal/v2/spisor/core";
+        String root = "http://registry.example.internal/v2/myorg/app";
         targetHttp.answer("HEAD " + root + "/blobs/" + BASE_LAYER_DIGEST, new RegistryResponse(
                 baseLayerAlreadyPresent ? 200 : 404, new HashMap<String, String>(), new byte[0]));
         targetHttp.answer("HEAD " + root + "/blobs/" + NEW_LAYER_DIGEST,
@@ -78,7 +78,7 @@ public class ImagePublisherTest {
                 new RegistryResponse(201, new HashMap<String, String>(), new byte[0]));
         targetHttp.answerMissingHeadsAs404();
         targetHttp.acceptAnyBlobUpload();
-        return new RegistryClient(targetHttp, "registry.spisor.internal", true);
+        return new RegistryClient(targetHttp, "registry.example.internal", true);
     }
 
     private static java.util.Map<String, String> location(String value) {
@@ -100,19 +100,19 @@ public class ImagePublisherTest {
     }
 
     private static ImageConfigOverrides overrides() {
-        List<String> entrypoint = Arrays.asList("/opt/spisor/launcher/bin/launcher");
+        List<String> entrypoint = Arrays.asList("/opt/app/launcher/bin/launcher");
         return new ImageConfigOverrides().withEntrypoint(entrypoint).withCmd(null);
     }
 
     @Test
     public void publishesConfigLayerAndManifestAndReturnsTheManifestDigest(@TempDir Path tmp) throws IOException {
         String digest = ImagePublisher.publish(source(), ImageReference.parse("eclipse-temurin:21-jre"),
-                target(false), ImageReference.parse("registry.spisor.internal/spisor/core:0.1.0"),
+                target(false), ImageReference.parse("registry.example.internal/myorg/app:0.1.0"),
                 layer(tmp), overrides());
 
         assertTrue(digest.startsWith("sha256:"), digest);
         List<String> calls = targetHttp.calls();
-        assertTrue(calls.contains("PUT http://registry.spisor.internal/v2/spisor/core/manifests/0.1.0"),
+        assertTrue(calls.contains("PUT http://registry.example.internal/v2/myorg/app/manifests/0.1.0"),
                 calls.toString());
     }
 
@@ -124,11 +124,11 @@ public class ImagePublisherTest {
     @Test
     public void theManifestIsPushedLast(@TempDir Path tmp) throws IOException {
         ImagePublisher.publish(source(), ImageReference.parse("eclipse-temurin:21-jre"),
-                target(false), ImageReference.parse("registry.spisor.internal/spisor/core:0.1.0"),
+                target(false), ImageReference.parse("registry.example.internal/myorg/app:0.1.0"),
                 layer(tmp), overrides());
 
         List<String> calls = targetHttp.calls();
-        assertEquals("PUT http://registry.spisor.internal/v2/spisor/core/manifests/0.1.0",
+        assertEquals("PUT http://registry.example.internal/v2/myorg/app/manifests/0.1.0",
                 calls.get(calls.size() - 1));
     }
 
@@ -139,7 +139,7 @@ public class ImagePublisherTest {
     @Test
     public void aBaseLayerAlreadyInTheTargetIsNotReUploaded(@TempDir Path tmp) throws IOException {
         ImagePublisher.publish(source(), ImageReference.parse("eclipse-temurin:21-jre"),
-                target(true), ImageReference.parse("registry.spisor.internal/spisor/core:0.1.0"),
+                target(true), ImageReference.parse("registry.example.internal/myorg/app:0.1.0"),
                 layer(tmp), overrides());
 
         assertFalse(sourceHttp.calls().contains("GET https://registry-1.docker.io/v2/library/eclipse-temurin/blobs/"
@@ -150,7 +150,7 @@ public class ImagePublisherTest {
     @Test
     public void theIndexIsResolvedToTheAmd64ManifestBeforeAnythingIsRead(@TempDir Path tmp) throws IOException {
         ImagePublisher.publish(source(), ImageReference.parse("eclipse-temurin:21-jre"),
-                target(false), ImageReference.parse("registry.spisor.internal/spisor/core:0.1.0"),
+                target(false), ImageReference.parse("registry.example.internal/myorg/app:0.1.0"),
                 layer(tmp), overrides());
 
         assertEquals("GET https://registry-1.docker.io/v2/library/eclipse-temurin/manifests/21-jre",

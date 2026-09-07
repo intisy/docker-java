@@ -33,10 +33,10 @@ public class ImageAssemblerTest {
 
     private static ImageConfigOverrides overrides() {
         return new ImageConfigOverrides()
-                .withEntrypoint(Arrays.asList("/opt/spisor/launcher/bin/launcher",
-                        "--registry=/var/lib/spisor/registry"))
+                .withEntrypoint(Arrays.asList("/opt/app/launcher/bin/launcher",
+                        "--registry=/var/lib/app/registry"))
                 .withCmd(null)
-                .withWorkingDir("/var/lib/spisor");
+                .withWorkingDir("/var/lib/app");
     }
 
     private static ImageAssembler.Assembled assemble() throws IOException {
@@ -69,11 +69,11 @@ public class ImageAssemblerTest {
         JsonObject config = GSON.fromJson(assemble().configJson(), JsonObject.class)
                 .getAsJsonObject("config");
 
-        assertEquals("/opt/spisor/launcher/bin/launcher",
+        assertEquals("/opt/app/launcher/bin/launcher",
                 config.getAsJsonArray("Entrypoint").get(0).getAsString());
-        assertEquals("--registry=/var/lib/spisor/registry",
+        assertEquals("--registry=/var/lib/app/registry",
                 config.getAsJsonArray("Entrypoint").get(1).getAsString());
-        assertEquals("/var/lib/spisor", config.get("WorkingDir").getAsString());
+        assertEquals("/var/lib/app", config.get("WorkingDir").getAsString());
         assertTrue(config.get("Cmd") == null || config.get("Cmd").isJsonNull(),
                 "a base Cmd left in place would run jshell instead of the launcher");
     }
@@ -81,8 +81,8 @@ public class ImageAssemblerTest {
     @Test
     public void notCallingWithCmdLeavesTheBaseCmdInPlace() throws IOException {
         ImageConfigOverrides overrides = new ImageConfigOverrides()
-                .withEntrypoint(Arrays.asList("/opt/spisor/launcher/bin/launcher"))
-                .withWorkingDir("/var/lib/spisor");
+                .withEntrypoint(Arrays.asList("/opt/app/launcher/bin/launcher"))
+                .withWorkingDir("/var/lib/app");
 
         JsonObject config = GSON.fromJson(
                 ImageAssembler.append(fixture("base-config.json"), fixture("base-manifest.json"),
@@ -183,7 +183,7 @@ public class ImageAssemblerTest {
                         layer(), overrides()).configJson(),
                 JsonObject.class).getAsJsonObject("config");
 
-        assertEquals("/opt/spisor/launcher/bin/launcher", config.getAsJsonArray("Entrypoint").get(0).getAsString());
+        assertEquals("/opt/app/launcher/bin/launcher", config.getAsJsonArray("Entrypoint").get(0).getAsString());
     }
 
     private static String fixture(String name) throws IOException {

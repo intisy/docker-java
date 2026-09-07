@@ -39,10 +39,10 @@ public class ImageReferenceTest {
 
     @Test
     public void explicitRegistryIsRecognisedByItsDot() {
-        ImageReference reference = ImageReference.parse("registry.spisor.internal/spisor/core:0.1.0");
-        assertEquals("registry.spisor.internal", reference.registry());
-        assertEquals("registry.spisor.internal", reference.host());
-        assertEquals("spisor/core", reference.repository());
+        ImageReference reference = ImageReference.parse("registry.example.internal/myorg/app:0.1.0");
+        assertEquals("registry.example.internal", reference.registry());
+        assertEquals("registry.example.internal", reference.host());
+        assertEquals("myorg/app", reference.repository());
         assertEquals("0.1.0", reference.reference());
     }
 
@@ -52,17 +52,17 @@ public class ImageReferenceTest {
      */
     @Test
     public void registryPortIsNotATag() {
-        ImageReference reference = ImageReference.parse("localhost:5000/spisor/core:0.1.0");
+        ImageReference reference = ImageReference.parse("localhost:5000/myorg/app:0.1.0");
         assertEquals("localhost:5000", reference.registry());
-        assertEquals("spisor/core", reference.repository());
+        assertEquals("myorg/app", reference.repository());
         assertEquals("0.1.0", reference.reference());
     }
 
     @Test
     public void registryPortWithNoTagStillParses() {
-        ImageReference reference = ImageReference.parse("localhost:5000/spisor/core");
+        ImageReference reference = ImageReference.parse("localhost:5000/myorg/app");
         assertEquals("localhost:5000", reference.registry());
-        assertEquals("spisor/core", reference.repository());
+        assertEquals("myorg/app", reference.repository());
         assertEquals("latest", reference.reference());
     }
 
@@ -78,15 +78,15 @@ public class ImageReferenceTest {
     @Test
     public void withRegistryRetargetsAndKeepsTheRest() {
         ImageReference retargeted = ImageReference.parse("eclipse-temurin:21-jre")
-                .withRegistry("registry.spisor.internal");
-        assertEquals("registry.spisor.internal", retargeted.registry());
+                .withRegistry("registry.example.internal");
+        assertEquals("registry.example.internal", retargeted.registry());
         assertEquals("library/eclipse-temurin", retargeted.repository());
         assertEquals("21-jre", retargeted.reference());
     }
 
     @Test
     public void roundTripsThroughToString() {
-        String text = "registry.spisor.internal/spisor/core:0.1.0";
+        String text = "registry.example.internal/myorg/app:0.1.0";
         assertEquals(text, ImageReference.parse(text).toString());
     }
 
