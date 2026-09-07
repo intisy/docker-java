@@ -2,9 +2,8 @@ package io.github.intisy.docker.registry;
 
 /**
  * A parsed container image reference.
- *
- * @implNote {@code docker.io} is the canonical registry name but not the host that serves it, so
- * {@link #registry()} and {@link #host()} differ for Docker Hub and nowhere else.
+ * {@code docker.io} is the canonical registry name but not the host that serves it, so {@link #registry()}
+ * and {@link #host()} differ for Docker Hub and nowhere else.
  *
  * @author Finn Birich
  */
@@ -60,9 +59,8 @@ public final class ImageReference {
     }
 
     /**
-     * @implNote the docker convention: a first segment is a registry only if it carries a dot or a
-     * port, or is literally localhost. Without this, {@code myorg/app} would read as a registry
-     * called myorg.
+     * The docker convention: a first segment is a registry only if it carries a dot or a port, or is
+     * literally localhost. Without this, {@code myorg/app} would read as a registry called myorg.
      */
     private static boolean looksLikeRegistry(String candidate) {
         return candidate.indexOf('.') >= 0 || candidate.indexOf(':') >= 0 || "localhost".equals(candidate);

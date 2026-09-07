@@ -7,8 +7,8 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * @implNote headers are held case-insensitively because {@code HttpURLConnection} preserves
- * whatever casing the server sent, and registries disagree about {@code Docker-Content-Digest}.
+ * Headers are held case-insensitively because {@code HttpURLConnection} preserves whatever casing the server
+ * sent, and registries disagree about {@code Docker-Content-Digest}.
  *
  * @author Finn Birich
  */

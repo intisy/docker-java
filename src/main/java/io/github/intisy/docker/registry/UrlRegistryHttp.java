@@ -12,12 +12,10 @@ import java.util.Map;
 /**
  * The real transport: {@code HttpURLConnection}, because the library targets Java 8 and
  * {@code java.net.http} is not available to it.
- *
- * @implNote acquires a bearer token lazily on a 401 and retries once, caching per scope. Docker
- * Hub answers 401 with a challenge on the very first anonymous request, so without the retry every
- * pull would need the caller to know the flow. The retry is skipped when the request carries a
- * body: a body stream cannot be replayed once consumed, so a write cannot be transparently
- * retried after a challenge.
+ * Acquires a bearer token lazily on a 401 and retries once, caching per scope. Docker Hub answers 401 with a
+ * challenge on the very first anonymous request, so without the retry every pull would need the caller to
+ * know the flow. The retry is skipped when the request carries a body: a body stream cannot be replayed once
+ * consumed, so a write cannot be transparently retried after a challenge.
  *
  * @author Finn Birich
  */
@@ -50,11 +48,10 @@ public final class UrlRegistryHttp implements RegistryHttp {
     }
 
     /**
-     * @implNote derives the pull scope from the request path, so that one client can walk several
-     * repositories without the caller tracking tokens. The scope is deliberately pull-only:
-     * anonymous pull from Docker Hub is the only authenticated flow this client implements.
-     * Supporting a registry that requires a token for writes would mean threading the HTTP method
-     * through and requesting {@code pull,push}.
+     * Derives the pull scope from the request path, so that one client can walk several repositories without
+     * the caller tracking tokens. The scope is deliberately pull-only: anonymous pull from Docker Hub is the
+     * only authenticated flow this client implements. Supporting a registry that requires a token for writes
+     * would mean threading the HTTP method through and requesting {@code pull,push}.
      */
     static String scopeFor(String url) {
         int v2 = url.indexOf("/v2/");
@@ -90,8 +87,8 @@ public final class UrlRegistryHttp implements RegistryHttp {
     }
 
     /**
-     * @implNote a two-field read rather than a gson dependency at this layer, so the transport
-     * stays free of any model. The token document has exactly one field this needs.
+     * A two-field read rather than a gson dependency at this layer, so the transport stays free of any model.
+     * The token document has exactly one field this needs.
      */
     static String jsonStringField(String json, String field) {
         String needle = "\"" + field + "\"";
@@ -157,9 +154,8 @@ public final class UrlRegistryHttp implements RegistryHttp {
     }
 
     /**
-     * @implNote a non-2xx response body arrives on the error stream, and reading the input stream
-     * instead throws, which would replace the registry's own explanation with an IOException that
-     * says nothing.
+     * A non-2xx response body arrives on the error stream, and reading the input stream instead throws, which
+     * would replace the registry's own explanation with an IOException that says nothing.
      */
     private static byte[] readBody(HttpURLConnection connection, int status) throws IOException {
         InputStream in = status >= 400 ? connection.getErrorStream() : connection.getInputStream();

@@ -92,9 +92,9 @@ public final class RegistryClient {
     }
 
     /**
-     * @implNote the two-step upload (POST for a session, PUT with the digest) rather than the
-     * single-POST form, because the monolithic POST is optional in the spec and registries differ
-     * about it, while every registry implements the two-step.
+     * The two-step upload (POST for a session, PUT with the digest) rather than the single-POST form, because
+     * the monolithic POST is optional in the spec and registries differ about it, while every registry
+     * implements the two-step.
      */
     public void putBlob(String repository, String digest, RegistryBody body) throws IOException {
         RegistryResponse session = http.send("POST", base(repository) + "/blobs/uploads/",
