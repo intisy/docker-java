@@ -15,7 +15,9 @@ import java.util.Map;
  *
  * @implNote acquires a bearer token lazily on a 401 and retries once, caching per scope. Docker
  * Hub answers 401 with a challenge on the very first anonymous request, so without the retry every
- * pull would need the caller to know the flow.
+ * pull would need the caller to know the flow. The retry is skipped when the request carries a
+ * body: a body stream cannot be replayed once consumed, so a write cannot be transparently
+ * retried after a challenge.
  *
  * @author Finn Birich
  */
@@ -49,7 +51,10 @@ public final class UrlRegistryHttp implements RegistryHttp {
 
     /**
      * @implNote derives the pull scope from the request path, so that one client can walk several
-     * repositories without the caller tracking tokens.
+     * repositories without the caller tracking tokens. The scope is deliberately pull-only:
+     * anonymous pull from Docker Hub is the only authenticated flow this client implements.
+     * Supporting a registry that requires a token for writes would mean threading the HTTP method
+     * through and requesting {@code pull,push}.
      */
     static String scopeFor(String url) {
         int v2 = url.indexOf("/v2/");
