@@ -1,0 +1,18 @@
+{
+  "architecture": "amd64",
+  "os": "linux",
+  "config": {
+    "Env": ["PATH=/usr/local/bin:/usr/bin:/bin", "JAVA_HOME=/opt/java/openjdk"],
+    "Cmd": ["jshell"]
+  },
+  "rootfs": {
+    "type": "layers",
+    "diff_ids": [
+      "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    ]
+  },
+  "history": [
+    { "created": "2026-01-01T00:00:00Z", "created_by": "base" }
+  ]
+}
