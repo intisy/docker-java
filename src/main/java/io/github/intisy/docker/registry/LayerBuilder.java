@@ -107,6 +107,13 @@ public final class LayerBuilder {
         return directories;
     }
 
+    /**
+     * @implNote the uid, gid and owner name calls are redundant with commons-compress 1.24.0's own
+     * defaults for the {@code TarArchiveEntry(String)} constructor used above, and are kept
+     * deliberately: the library sources {@code userName} from {@code System.getProperty("user.name")}
+     * on another of its constructor paths, so a future constructor change here would otherwise leak
+     * the building machine's identity into the layer and silently break cross-machine determinism.
+     */
     private static void pin(TarArchiveEntry entry, int mode, long size) {
         entry.setMode((entry.isDirectory() ? TarArchiveEntry.DEFAULT_DIR_MODE : 0) | mode);
         entry.setModTime(0L);

@@ -93,6 +93,35 @@ public class LayerBuilderTest {
     }
 
     /**
+     * Determinism comes from pinning every field that could otherwise vary between two builds of
+     * the same tree. Asserting the resulting digests match is not enough on its own: tar stores
+     * mtime at one-second granularity, so two builds in the same second agree even when nothing
+     * is pinned at all.
+     */
+    @Test
+    void everyEntryHasItsVaryingMetadataPinned(@TempDir Path tmp) throws IOException {
+        Layer layer = LayerBuilder.fromDirectory(
+                launcherLikeTree(tmp), "/opt/spisor/launcher", tmp.resolve("layer.tar.gz"));
+
+        TarArchiveInputStream tar = openTar(layer.file());
+        try {
+            int entries = 0;
+            TarArchiveEntry entry;
+            while ((entry = tar.getNextTarEntry()) != null) {
+                entries++;
+                assertEquals(0L, entry.getModTime().getTime(), entry.getName() + " mtime");
+                assertEquals(0, entry.getLongUserId(), entry.getName() + " uid");
+                assertEquals(0, entry.getLongGroupId(), entry.getName() + " gid");
+                assertEquals("", entry.getUserName(), entry.getName() + " user name");
+                assertEquals("", entry.getGroupName(), entry.getName() + " group name");
+            }
+            assertTrue(entries > 0, "expected entries in the layer");
+        } finally {
+            tar.close();
+        }
+    }
+
+    /**
      * @implNote {@link Digests#sha256(InputStream)} does not close its argument; on Windows a
      * lingering open handle on the layer file blocks {@code @TempDir} cleanup after the test.
      */
