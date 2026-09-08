@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 @Tag("unit")
 public class RegistryClientTest {
-    private static final String LOCAL = "registry.spisor.internal";
+    private static final String LOCAL = "registry.example.internal";
     private static final String MANIFEST_MEDIA_TYPE = "application/vnd.oci.image.manifest.v1+json";
 
     private RegistryClient plainHttpClient(FakeRegistryHttp http) {
@@ -29,11 +29,11 @@ public class RegistryClientTest {
     @Test
     public void getManifestUsesHttpForAPlainRegistryAndReturnsTheDigestHeader() throws Exception {
         FakeRegistryHttp http = new FakeRegistryHttp();
-        http.answerText("GET http://" + LOCAL + "/v2/spisor/core/manifests/0.1.0", 200, "{\"schemaVersion\":2}",
+        http.answerText("GET http://" + LOCAL + "/v2/myorg/app/manifests/0.1.0", 200, "{\"schemaVersion\":2}",
                 "Docker-Content-Digest", "sha256:aa", "Content-Type", MANIFEST_MEDIA_TYPE);
 
         RegistryClient.Manifest manifest =
-                plainHttpClient(http).getManifest(ImageReference.parse(LOCAL + "/spisor/core:0.1.0"));
+                plainHttpClient(http).getManifest(ImageReference.parse(LOCAL + "/myorg/app:0.1.0"));
 
         assertEquals("sha256:aa", manifest.digest());
         assertEquals(MANIFEST_MEDIA_TYPE, manifest.mediaType());
@@ -49,11 +49,11 @@ public class RegistryClientTest {
     public void manifestDigestIsComputedWhenTheHeaderIsAbsent() throws Exception {
         FakeRegistryHttp http = new FakeRegistryHttp();
         String body = "{\"schemaVersion\":2}";
-        http.answerText("GET http://" + LOCAL + "/v2/spisor/core/manifests/0.1.0", 200, body,
+        http.answerText("GET http://" + LOCAL + "/v2/myorg/app/manifests/0.1.0", 200, body,
                 "Content-Type", MANIFEST_MEDIA_TYPE);
 
         RegistryClient.Manifest manifest =
-                plainHttpClient(http).getManifest(ImageReference.parse(LOCAL + "/spisor/core:0.1.0"));
+                plainHttpClient(http).getManifest(ImageReference.parse(LOCAL + "/myorg/app:0.1.0"));
 
         assertEquals(Digests.sha256(body.getBytes(StandardCharsets.UTF_8)), manifest.digest());
     }
@@ -73,28 +73,28 @@ public class RegistryClientTest {
     @Test
     public void blobExistsIsTrueOnTwoHundredAndFalseOnFourOhFour() throws Exception {
         FakeRegistryHttp http = new FakeRegistryHttp();
-        http.answer("HEAD http://" + LOCAL + "/v2/spisor/core/blobs/sha256:aa",
+        http.answer("HEAD http://" + LOCAL + "/v2/myorg/app/blobs/sha256:aa",
                 new RegistryResponse(200, new HashMap<String, String>(), new byte[0]));
-        http.answer("HEAD http://" + LOCAL + "/v2/spisor/core/blobs/sha256:bb",
+        http.answer("HEAD http://" + LOCAL + "/v2/myorg/app/blobs/sha256:bb",
                 new RegistryResponse(404, new HashMap<String, String>(), new byte[0]));
 
         RegistryClient client = plainHttpClient(http);
-        assertTrue(client.blobExists("spisor/core", "sha256:aa"));
-        assertFalse(client.blobExists("spisor/core", "sha256:bb"));
+        assertTrue(client.blobExists("myorg/app", "sha256:aa"));
+        assertFalse(client.blobExists("myorg/app", "sha256:bb"));
     }
 
     @Test
     public void putBlobPostsThenPutsToTheLocationWithTheDigestQuery() throws Exception {
         FakeRegistryHttp http = new FakeRegistryHttp();
-        String uploadUrl = "http://" + LOCAL + "/v2/spisor/core/blobs/uploads/abc123";
-        http.answer("POST http://" + LOCAL + "/v2/spisor/core/blobs/uploads/",
+        String uploadUrl = "http://" + LOCAL + "/v2/myorg/app/blobs/uploads/abc123";
+        http.answer("POST http://" + LOCAL + "/v2/myorg/app/blobs/uploads/",
                 new RegistryResponse(202, headers("Location", uploadUrl), new byte[0]));
         http.answer("PUT " + uploadUrl + "?digest=sha256%3Aaa",
                 new RegistryResponse(201, new HashMap<String, String>(), new byte[0]));
 
-        plainHttpClient(http).putBlob("spisor/core", "sha256:aa", RegistryBody.ofBytes(new byte[] {1, 2, 3}));
+        plainHttpClient(http).putBlob("myorg/app", "sha256:aa", RegistryBody.ofBytes(new byte[] {1, 2, 3}));
 
-        assertEquals("POST http://" + LOCAL + "/v2/spisor/core/blobs/uploads/", http.calls().get(0));
+        assertEquals("POST http://" + LOCAL + "/v2/myorg/app/blobs/uploads/", http.calls().get(0));
         assertEquals("PUT " + uploadUrl + "?digest=sha256%3Aaa", http.calls().get(1));
     }
 
@@ -106,30 +106,30 @@ public class RegistryClientTest {
     @Test
     public void relativeUploadLocationIsResolvedAgainstTheRegistry() throws Exception {
         FakeRegistryHttp http = new FakeRegistryHttp();
-        http.answer("POST http://" + LOCAL + "/v2/spisor/core/blobs/uploads/",
-                new RegistryResponse(202, headers("Location", "/v2/spisor/core/blobs/uploads/rel1"), new byte[0]));
-        http.answer("PUT http://" + LOCAL + "/v2/spisor/core/blobs/uploads/rel1?digest=sha256%3Aaa",
+        http.answer("POST http://" + LOCAL + "/v2/myorg/app/blobs/uploads/",
+                new RegistryResponse(202, headers("Location", "/v2/myorg/app/blobs/uploads/rel1"), new byte[0]));
+        http.answer("PUT http://" + LOCAL + "/v2/myorg/app/blobs/uploads/rel1?digest=sha256%3Aaa",
                 new RegistryResponse(201, new HashMap<String, String>(), new byte[0]));
 
-        plainHttpClient(http).putBlob("spisor/core", "sha256:aa", RegistryBody.ofBytes(new byte[] {1}));
+        plainHttpClient(http).putBlob("myorg/app", "sha256:aa", RegistryBody.ofBytes(new byte[] {1}));
 
-        assertEquals("PUT http://" + LOCAL + "/v2/spisor/core/blobs/uploads/rel1?digest=sha256%3Aaa",
+        assertEquals("PUT http://" + LOCAL + "/v2/myorg/app/blobs/uploads/rel1?digest=sha256%3Aaa",
                 http.calls().get(1));
     }
 
     @Test
     public void putManifestSendsTheMediaTypeAsContentType() throws Exception {
         FakeRegistryHttp http = new FakeRegistryHttp();
-        http.answer("PUT http://" + LOCAL + "/v2/spisor/core/manifests/0.1.0",
+        http.answer("PUT http://" + LOCAL + "/v2/myorg/app/manifests/0.1.0",
                 new RegistryResponse(201, new HashMap<String, String>(), new byte[0]));
 
         byte[] manifest = "{\"schemaVersion\":2}".getBytes(StandardCharsets.UTF_8);
         plainHttpClient(http).putManifest(
-                ImageReference.parse(LOCAL + "/spisor/core:0.1.0"), MANIFEST_MEDIA_TYPE, manifest);
+                ImageReference.parse(LOCAL + "/myorg/app:0.1.0"), MANIFEST_MEDIA_TYPE, manifest);
 
-        assertEquals("PUT http://" + LOCAL + "/v2/spisor/core/manifests/0.1.0", http.calls().get(0));
+        assertEquals("PUT http://" + LOCAL + "/v2/myorg/app/manifests/0.1.0", http.calls().get(0));
         assertEquals("{\"schemaVersion\":2}",
-                new String(http.bodySentTo("PUT http://" + LOCAL + "/v2/spisor/core/manifests/0.1.0"),
+                new String(http.bodySentTo("PUT http://" + LOCAL + "/v2/myorg/app/manifests/0.1.0"),
                         StandardCharsets.UTF_8));
     }
 
@@ -140,10 +140,10 @@ public class RegistryClientTest {
     @Test
     public void aFailedManifestPutThrowsWithStatusAndBody() {
         FakeRegistryHttp http = new FakeRegistryHttp();
-        http.answerText("PUT http://" + LOCAL + "/v2/spisor/core/manifests/0.1.0", 400, "MANIFEST_INVALID");
+        http.answerText("PUT http://" + LOCAL + "/v2/myorg/app/manifests/0.1.0", 400, "MANIFEST_INVALID");
 
         try {
-            plainHttpClient(http).putManifest(ImageReference.parse(LOCAL + "/spisor/core:0.1.0"),
+            plainHttpClient(http).putManifest(ImageReference.parse(LOCAL + "/myorg/app:0.1.0"),
                     MANIFEST_MEDIA_TYPE, new byte[] {1});
             fail("expected an IOException");
         } catch (IOException expected) {
