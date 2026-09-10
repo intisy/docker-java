@@ -28,8 +28,8 @@ import static io.github.intisy.docker.IOUtils.readAllBytes;
  * <p>
  * The auto-setup prompt can be controlled via the {@code docker.auto.setup} system property:
  * <ul>
- *   <li>{@code "true"} (default) — show interactive prompt offering automatic setup</li>
- *   <li>{@code "false"} — skip prompt, always show manual commands instead</li>
+ *   <li>{@code "true"} (default) - show interactive prompt offering automatic setup</li>
+ *   <li>{@code "false"} - skip prompt, always show manual commands instead</li>
  * </ul>
  *
  * @author Finn Birich
@@ -71,8 +71,8 @@ public class WindowsDockerProvider extends DockerProvider {
      * <p>
      * Controlled by the {@code docker.auto.setup} system property:
      * <ul>
-     *   <li>{@code "true"} (default) — show interactive prompt</li>
-     *   <li>{@code "false"} — skip prompt, always show manual commands (old behavior)</li>
+     *   <li>{@code "true"} (default) - show interactive prompt</li>
+     *   <li>{@code "false"} - skip prompt, always show manual commands (old behavior)</li>
      * </ul>
      *
      * @param description Human-readable explanation of what will be set up
@@ -103,7 +103,7 @@ public class WindowsDockerProvider extends DockerProvider {
             }
 
             if (input == null) {
-                log.info("No interactive console available — defaulting to automatic setup (Y).");
+                log.info("No interactive console available - defaulting to automatic setup (Y).");
                 return true;
             }
             input = input.trim().toLowerCase();
