@@ -70,3 +70,9 @@ java {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
 }
+
+// javac leaves the source encoding unset, so it follows whatever the build JVM reports, and that
+// is not reliably anything: measured on one Windows box with JDK 17, Gradle 8.11.1 read these
+// sources as Cp1252 while 7.6.4 read them as UTF-8. Pinning it makes the compiled bytes the same
+// everywhere rather than a property of the build that ran.
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
